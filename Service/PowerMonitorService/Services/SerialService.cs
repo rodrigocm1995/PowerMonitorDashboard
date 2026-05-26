@@ -35,6 +35,9 @@ namespace PowerMonitorService.Services
         private double _lastCurrent = 0.0;
         private double _lastPower = 0.0;
 
+        // Parámetros de calibración en modo simulación
+        private double _simMaxCurrent = 2.0;
+
         public SerialService(IHubContext<SerialHub> hubContext, ILogger<SerialService> logger)
         {
             _hubContext = hubContext;
@@ -100,6 +103,7 @@ namespace PowerMonitorService.Services
                         _currentBaudRate = baudRate;
                         _savedPort = portName;
                         _savedBaudRate = baudRate;
+                        _simMaxCurrent = 2.0; // Reset a default de simulación
                         SaveSettings(portName, baudRate);
 
                         _simCts = new CancellationTokenSource();
@@ -210,7 +214,17 @@ namespace PowerMonitorService.Services
                 if (_isSimulating)
                 {
                     _logger.LogInformation($"Comando simulado enviado: '{cmd}'");
-                    _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"Enviado (Simulación): '{cmd}'");
+                    _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"Enviado (Simulación): '{cmd.Trim()}'");
+
+                    if (cmd.StartsWith("SET:"))
+                    {
+                        var parts = cmd.Trim().Split(':');
+                        if (parts.Length >= 3 && double.TryParse(parts[1], out double maxI) && double.TryParse(parts[2], out double shuntR))
+                        {
+                            _simMaxCurrent = maxI; // Actualizar límite de corriente del simulador
+                            _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"[Simulador] Calibración INA236 Actualizada: Corriente Máx = {maxI} A, Shunt Resistor = {shuntR} Ohms.");
+                        }
+                    }
                     return true;
                 }
 
@@ -249,21 +263,22 @@ namespace PowerMonitorService.Services
                     // Voltaje base 12V con fluctuación leve (+/- 0.1V) y caídas bajo carga
                     double baseVoltage = 12.0;
                     
-                    // Simular carga de corriente de 0 A a 10 A
-                    // Genera una variación sinusoidal con periodos y ruido
+                    // Simular carga de corriente escalada a _simMaxCurrent
+                    // Genera una variación sinusoidal con periodos y ruido proporcionales
                     phase += 0.05;
-                    double currentLoad = 3.0 + 2.5 * Math.Sin(phase); // Varia de 0.5A a 5.5A
+                    double maxI = _simMaxCurrent;
+                    double currentLoad = (maxI * 0.4) + (maxI * 0.25) * Math.Sin(phase); // Oscila entre 15% y 65% de I_max
 
-                    // Simular un pulso alto intermitente (un motor que enciende cada 20 segundos)
+                    // Simular un pulso alto intermitente (un motor que enciende cada 12 segundos)
                     double totalSeconds = DateTime.Now.TimeOfDay.TotalSeconds;
                     if (((int)(totalSeconds / 12.0) % 2) == 0)
                     {
-                        currentLoad += 3.5; // Agrega 3.5 A
+                        currentLoad += (maxI * 0.3); // Agrega 30% del máximo
                     }
 
                     // Ruido aleatorio en corriente
-                    currentLoad += (random.NextDouble() - 0.5) * 0.15;
-                    currentLoad = Math.Clamp(currentLoad, 0.0, 10.0);
+                    currentLoad += (random.NextDouble() - 0.5) * (maxI * 0.05);
+                    currentLoad = Math.Clamp(currentLoad, 0.0, maxI);
 
                     // El voltaje decae ligeramente con corrientes muy altas (resistencia de fuente)
                     double voltageDrop = currentLoad * 0.08;

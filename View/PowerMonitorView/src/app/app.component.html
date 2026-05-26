@@ -195,6 +195,7 @@
                 step="any"
                 [ngModel]="shuntResistorInput()"
                 (ngModelChange)="shuntResistorInput.set(+$event)"
+                [disabled]="selectedPort() === 'SIMULATOR'"
                 placeholder="Ej. 10"
               />
               <select
@@ -202,16 +203,21 @@
                 class="custom-select-inline"
                 [ngModel]="shuntUnitInput()"
                 (ngModelChange)="shuntUnitInput.set($event)"
+                [disabled]="selectedPort() === 'SIMULATOR'"
               >
                 <option value="Ohms">Ohms (Ω)</option>
                 <option value="mOhms">mOhms (mΩ)</option>
               </select>
             </div>
             <span class="input-hint">
-              @if (shuntUnitInput() === 'mOhms') {
-                Valor calculado: {{ (shuntResistorInput() / 1000) }} Ω
+              @if (selectedPort() === 'SIMULATOR') {
+                Simulación activa: resistor Shunt desactivado.
               } @else {
-                Valor calculado: {{ shuntResistorInput() }} Ω
+                @if (shuntUnitInput() === 'mOhms') {
+                  Valor calculado: {{ (shuntResistorInput() / 1000) }} Ω
+                } @else {
+                  Valor calculado: {{ shuntResistorInput() }} Ω
+                }
               }
             </span>
           </div>
