@@ -30,6 +30,11 @@ namespace PowerMonitorService.Services
         private bool _isSimulating;
         private CancellationTokenSource? _simCts;
 
+        // Historial acumulado de variables para el parser serie por líneas
+        private double _lastVoltage = 0.0;
+        private double _lastCurrent = 0.0;
+        private double _lastPower = 0.0;
+
         public SerialService(IHubContext<SerialHub> hubContext, ILogger<SerialService> logger)
         {
             _hubContext = hubContext;
@@ -74,6 +79,9 @@ namespace PowerMonitorService.Services
             lock (_lock)
             {
                 errorMessage = string.Empty;
+                _lastVoltage = 0.0;
+                _lastCurrent = 0.0;
+                _lastPower = 0.0;
                 if (_serialPort != null && _serialPort.IsOpen)
                 {
                     Disconnect();
@@ -313,11 +321,18 @@ namespace PowerMonitorService.Services
                             var (v, i, p) = ParseTelemetry(trimmedLine);
                             if (v.HasValue || i.HasValue || p.HasValue)
                             {
+                                lock (_lock)
+                                {
+                                    if (v.HasValue) _lastVoltage = v.Value;
+                                    if (i.HasValue) _lastCurrent = i.Value;
+                                    if (p.HasValue) _lastPower = p.Value;
+                                }
+
                                 _hubContext.Clients.All.SendAsync("ReceiveTelemetry", new
                                 {
-                                    voltage = v ?? 0.0,
-                                    current = i ?? 0.0,
-                                    power = p ?? 0.0
+                                    voltage = _lastVoltage,
+                                    current = _lastCurrent,
+                                    power = _lastPower
                                 });
                             }
                         }
@@ -372,19 +387,41 @@ namespace PowerMonitorService.Services
             catch { }
 
             // 2. Parser Key-Value usando expresiones regulares
-            // Busca voltajes: V:12.50V, V = 12.5, voltage:12
-            var matchV = Regex.Match(line, @"[Vv](?:olt(?:aje)?)?\s*[:=]\s*([0-9.]+)");
-            // Busca corrientes: I:1.25A, I = 1.25, corriente:1.2, C:1.2
-            var matchI = Regex.Match(line, @"(?:[Ii](?:nst(?:ante)?)?|[Cc](?:orr(?:iente)?)?)\s*[:=]\s*([0-9.]+)");
-            // Busca potencias: P:15.6W, P = 15.6, potencia:15
-            var matchP = Regex.Match(line, @"[Pp](?:ot(?:encia)?)?\s*[:=]\s*([0-9.]+)");
+            // Busca voltajes: V:12.50V, V = 12.5, voltage:12, Load Voltage = 12
+            var matchV = Regex.Match(line, @"[Vv](?:olt(?:age|aje)?)?\s*[:=]\s*([0-9.]+)");
+            // Busca corrientes: I:1.25A, Current = 1.25, corriente:1.2, C:1.2
+            var matchI = Regex.Match(line, @"(?:[Ii](?:nst(?:ante)?)?|[Cc](?:urr(?:ent)?|orr(?:iente)?)?)\s*[:=]\s*([0-9.]+)");
+            // Busca potencias: P:15.6W, Power = 15.6, potencia:15
+            var matchP = Regex.Match(line, @"[Pp](?:ow(?:er)?|ot(?:encia)?)?\s*[:=]\s*([0-9.]+)");
 
             if (matchV.Success && double.TryParse(matchV.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double vVal))
+            {
                 v = vVal;
+            }
             if (matchI.Success && double.TryParse(matchI.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double iVal))
-                i = iVal;
+            {
+                // Convertir mA a A
+                if (line.Contains("mA", StringComparison.OrdinalIgnoreCase))
+                {
+                    i = iVal / 1000.0;
+                }
+                else
+                {
+                    i = iVal;
+                }
+            }
             if (matchP.Success && double.TryParse(matchP.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double pVal))
-                p = pVal;
+            {
+                // Convertir mW a W
+                if (line.Contains("mW", StringComparison.OrdinalIgnoreCase))
+                {
+                    p = pVal / 1000.0;
+                }
+                else
+                {
+                    p = pVal;
+                }
+            }
 
             if (v.HasValue || i.HasValue || p.HasValue)
             {
