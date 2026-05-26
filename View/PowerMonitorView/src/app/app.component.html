@@ -168,21 +168,21 @@
           <div class="metric-card current">
             <span class="metric-label">Corriente Consumida</span>
             <span class="metric-value">
-              {{ serialService.isConnected() ? (serialService.telemetry().current | number:'1.2-2') : '0.00' }} A
+              {{ serialService.isConnected() ? formatValue(serialService.telemetry().current, 'A') : '0.00 A' }}
             </span>
           </div>
 
           <div class="metric-card voltage">
             <span class="metric-label">Voltaje en Carga</span>
             <span class="metric-value">
-              {{ serialService.isConnected() ? (serialService.telemetry().voltage | number:'1.2-2') : '0.00' }} V
+              {{ serialService.isConnected() ? formatValue(serialService.telemetry().voltage, 'V') : '0.00 V' }}
             </span>
           </div>
 
           <div class="metric-card power">
             <span class="metric-label">Potencia Consumida</span>
             <span class="metric-value">
-              {{ serialService.isConnected() ? (serialService.telemetry().power | number:'1.2-2') : '0.00' }} W
+              {{ serialService.isConnected() ? formatValue(serialService.telemetry().power, 'W') : '0.00 W' }}
             </span>
           </div>
         </div>

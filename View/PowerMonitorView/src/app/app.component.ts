@@ -149,6 +149,18 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.updateChartTheme();
   }
 
+  // Formatea valores menores a 1 en submúltiplos (mA, mV, mW)
+  public formatValue(val: number | undefined | null, baseUnit: string): string {
+    if (val === undefined || val === null) {
+      return `0.00 ${baseUnit}`;
+    }
+    const absVal = Math.abs(val);
+    if (absVal > 0 && absVal < 1) {
+      return `${(val * 1000).toFixed(2)} m${baseUnit}`;
+    }
+    return `${val.toFixed(2)} ${baseUnit}`;
+  }
+
   // Auto-scroll al fondo de la terminal
   private scrollToBottom() {
     if (this.serialTerminal) {
