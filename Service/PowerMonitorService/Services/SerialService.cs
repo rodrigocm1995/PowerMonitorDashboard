@@ -219,7 +219,9 @@ namespace PowerMonitorService.Services
                     if (cmd.StartsWith("SET:"))
                     {
                         var parts = cmd.Trim().Split(':');
-                        if (parts.Length >= 3 && double.TryParse(parts[1], out double maxI) && double.TryParse(parts[2], out double shuntR))
+                        if (parts.Length >= 3 && 
+                            double.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out double maxI) && 
+                            double.TryParse(parts[2], System.Globalization.CultureInfo.InvariantCulture, out double shuntR))
                         {
                             _simMaxCurrent = maxI; // Actualizar límite de corriente del simulador
                             _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"[Simulador] Calibración INA236 Actualizada: Corriente Máx = {maxI} A, Shunt Resistor = {shuntR} Ohms.");
@@ -266,7 +268,11 @@ namespace PowerMonitorService.Services
                     // Simular carga de corriente escalada a _simMaxCurrent
                     // Genera una variación sinusoidal con periodos y ruido proporcionales
                     phase += 0.05;
-                    double maxI = _simMaxCurrent;
+                    double maxI;
+                    lock (_lock)
+                    {
+                        maxI = _simMaxCurrent;
+                    }
                     double currentLoad = (maxI * 0.4) + (maxI * 0.25) * Math.Sin(phase); // Oscila entre 15% y 65% de I_max
 
                     // Simular un pulso alto intermitente (un motor que enciende cada 12 segundos)
