@@ -211,6 +211,11 @@ namespace PowerMonitorService.Services
         {
             lock (_lock)
             {
+                if (!cmd.EndsWith("\n"))
+                {
+                    cmd += "\n";
+                }
+
                 if (_isSimulating)
                 {
                     _logger.LogInformation($"Comando simulado enviado: '{cmd}'");
