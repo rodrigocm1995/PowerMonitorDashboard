@@ -722,6 +722,11 @@ body.light-mode .terminal::-webkit-scrollbar-thumb { background: rgba(13, 148, 1
   box-shadow: 0 0 8px rgba(0, 242, 254, 0.25);
 }
 
+#max-current-input,
+#shunt-resistor-input {
+  max-width: 130px;
+}
+
 .custom-input::placeholder {
   color: var(--text-muted);
 }
@@ -745,7 +750,8 @@ body.light-mode .terminal::-webkit-scrollbar-thumb { background: rgba(13, 148, 1
   font-size: 0.9rem;
   outline: none;
   cursor: pointer;
-  width: 110px;
+  width: 125px;
+  flex-shrink: 0;
   transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
 }
 
