@@ -1,0 +1,18 @@
+# C# Web API build outputs
+Service/PowerMonitorService/bin/
+Service/PowerMonitorService/obj/
+bin/
+obj/
+
+# Angular build and dependency folders
+View/PowerMonitorView/node_modules/
+View/PowerMonitorView/.angular/
+View/PowerMonitorView/dist/
+node_modules/
+.angular/
+dist/
+
+# Local settings and user files
+Service/PowerMonitorService/serial-settings.json
+serial-settings.json
+.vscode/

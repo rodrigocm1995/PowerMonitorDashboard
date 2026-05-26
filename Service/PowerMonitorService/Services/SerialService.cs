@@ -1,0 +1,485 @@
+using PowerMonitorService.Hubs;
+using Microsoft.AspNetCore.SignalR;
+using System;
+using System.IO;
+using System.IO.Ports;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PowerMonitorService.Services
+{
+    public class SerialService
+    {
+        private readonly IHubContext<SerialHub> _hubContext;
+        private readonly ILogger<SerialService> _logger;
+        private SerialPort? _serialPort;
+        
+        private string? _currentPort;
+        private int _currentBaudRate = 115200;
+        private string? _savedPort;
+        private int _savedBaudRate = 115200;
+        
+        private Thread? _readThread;
+        private bool _isRunning;
+        private readonly object _lock = new();
+        private readonly string _settingsPath;
+
+        // Propiedades para simulación
+        private bool _isSimulating;
+        private CancellationTokenSource? _simCts;
+
+        public SerialService(IHubContext<SerialHub> hubContext, ILogger<SerialService> logger)
+        {
+            _hubContext = hubContext;
+            _logger = logger;
+            _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "serial-settings.json");
+            LoadSettings();
+            TryAutoConnect();
+        }
+
+        // Obtiene la lista de puertos COM disponibles en Windows y agrega "SIMULATOR"
+        public string[] GetAvailablePorts()
+        {
+            var ports = SerialPort.GetPortNames();
+            var list = new List<string>(ports);
+            if (!list.Contains("SIMULATOR"))
+            {
+                list.Add("SIMULATOR");
+            }
+            return list.ToArray();
+        }
+
+        // Devuelve el estado actual de la conexión y las configuraciones guardadas
+        public object GetStatus()
+        {
+            lock (_lock)
+            {
+                bool isConnected = _isSimulating || (_serialPort?.IsOpen ?? false);
+                return new
+                {
+                    IsConnected = isConnected,
+                    PortName = isConnected ? _currentPort : null,
+                    BaudRate = isConnected ? _currentBaudRate : 0,
+                    SavedPort = _savedPort,
+                    SavedBaudRate = _savedBaudRate
+                };
+            }
+        }
+
+        // Abre la conexión con el puerto serie o inicia la simulación
+        public bool Connect(string portName, int baudRate, out string errorMessage)
+        {
+            lock (_lock)
+            {
+                errorMessage = string.Empty;
+                if (_serialPort != null && _serialPort.IsOpen)
+                {
+                    Disconnect();
+                }
+                if (_isSimulating)
+                {
+                    Disconnect();
+                }
+
+                if (portName.Equals("SIMULATOR", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        _isSimulating = true;
+                        _currentPort = portName;
+                        _currentBaudRate = baudRate;
+                        _savedPort = portName;
+                        _savedBaudRate = baudRate;
+                        SaveSettings(portName, baudRate);
+
+                        _simCts = new CancellationTokenSource();
+                        Task.Run(() => SimulationLoop(_simCts.Token));
+
+                        _logger.LogInformation("Puerto SIMULATOR iniciado con éxito.");
+                        _hubContext.Clients.All.SendAsync("ReceiveStatus", new { IsConnected = true, PortName = portName, BaudRate = baudRate });
+                        _hubContext.Clients.All.SendAsync("ReceiveTxLog", "[Sistema] Simulación de puerto COM conectada con éxito.");
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        errorMessage = ex.Message;
+                        return false;
+                    }
+                }
+
+                try
+                {
+                    _serialPort = new SerialPort(portName, baudRate)
+                    {
+                        ReadTimeout = 1000,
+                        WriteTimeout = 1000,
+                        NewLine = "\n"
+                    };
+
+                    _serialPort.Open();
+
+                    // Limpiar buffers iniciales
+                    _serialPort.DiscardInBuffer();
+                    _serialPort.DiscardOutBuffer();
+
+                    _currentPort = portName;
+                    _currentBaudRate = baudRate;
+                    _savedPort = portName;
+                    _savedBaudRate = baudRate;
+                    SaveSettings(portName, baudRate);
+
+                    _isRunning = true;
+                    _readThread = new Thread(ReadLoop)
+                    {
+                        IsBackground = true,
+                        Name = "SerialReadThread"
+                    };
+                    _readThread.Start();
+
+                    _logger.LogInformation($"Puerto serie {portName} abierto con éxito a {baudRate} bps.");
+                    _hubContext.Clients.All.SendAsync("ReceiveStatus", new { IsConnected = true, PortName = portName, BaudRate = baudRate });
+                    _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"[Sistema] Puerto COM conectado con éxito a {baudRate} bps.");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    errorMessage = ex.Message;
+                    _logger.LogError($"Error al abrir el puerto {portName}: {ex.Message}");
+                    _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"[Sistema] Error de conexión en {portName}: {ex.Message}");
+                    return false;
+                }
+            }
+        }
+
+        // Cierra la conexión física o detiene la simulación
+        public void Disconnect()
+        {
+            lock (_lock)
+            {
+                _isRunning = false;
+                if (_isSimulating)
+                {
+                    _isSimulating = false;
+                    _simCts?.Cancel();
+                    _simCts?.Dispose();
+                    _simCts = null;
+                }
+
+                if (_serialPort != null)
+                {
+                    try
+                    {
+                        if (_serialPort.IsOpen)
+                        {
+                            _serialPort.Close();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error al cerrar el puerto serie: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _serialPort.Dispose();
+                        _serialPort = null;
+                    }
+                }
+
+                _currentPort = null;
+                _logger.LogInformation("Puerto serie o simulación desconectada.");
+                _hubContext.Clients.All.SendAsync("ReceiveStatus", new { IsConnected = false, PortName = (string?)null, BaudRate = 0 });
+                _hubContext.Clients.All.SendAsync("ReceiveTxLog", "[Sistema] Puerto serie desconectado.");
+            }
+        }
+
+        // Envía un comando de texto a la tarjeta de desarrollo
+        public bool SendCommand(string cmd)
+        {
+            lock (_lock)
+            {
+                if (_isSimulating)
+                {
+                    _logger.LogInformation($"Comando simulado enviado: '{cmd}'");
+                    _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"Enviado (Simulación): '{cmd}'");
+                    return true;
+                }
+
+                if (_serialPort == null || !_serialPort.IsOpen)
+                {
+                    _logger.LogWarning("Intento de envío de comando sin puerto serie activo.");
+                    return false;
+                }
+
+                try
+                {
+                    _serialPort.Write(cmd);
+                    _logger.LogInformation($"Enviado comando serie: '{cmd}'");
+                    _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"Enviado: '{cmd}'");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error al transmitir comando serie: {ex.Message}");
+                    _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"Error al enviar: {ex.Message}");
+                    return false;
+                }
+            }
+        }
+
+        // Bucle de simulación para generar lecturas sin tarjeta física
+        private async Task SimulationLoop(CancellationToken token)
+        {
+            var random = new Random();
+            double phase = 0.0;
+
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    // Voltaje base 12V con fluctuación leve (+/- 0.1V) y caídas bajo carga
+                    double baseVoltage = 12.0;
+                    
+                    // Simular carga de corriente de 0 A a 10 A
+                    // Genera una variación sinusoidal con periodos y ruido
+                    phase += 0.05;
+                    double currentLoad = 3.0 + 2.5 * Math.Sin(phase); // Varia de 0.5A a 5.5A
+
+                    // Simular un pulso alto intermitente (un motor que enciende cada 20 segundos)
+                    double totalSeconds = DateTime.Now.TimeOfDay.TotalSeconds;
+                    if (((int)(totalSeconds / 12.0) % 2) == 0)
+                    {
+                        currentLoad += 3.5; // Agrega 3.5 A
+                    }
+
+                    // Ruido aleatorio en corriente
+                    currentLoad += (random.NextDouble() - 0.5) * 0.15;
+                    currentLoad = Math.Clamp(currentLoad, 0.0, 10.0);
+
+                    // El voltaje decae ligeramente con corrientes muy altas (resistencia de fuente)
+                    double voltageDrop = currentLoad * 0.08;
+                    double voltageNoise = (random.NextDouble() - 0.5) * 0.05;
+                    double voltage = Math.Clamp(baseVoltage - voltageDrop + voltageNoise, 0.0, 36.0);
+
+                    // Potencia calculada
+                    double power = voltage * currentLoad;
+
+                    // Enviar log crudo simulated
+                    string rawLine = $"V:{voltage:F2}V, I:{currentLoad:F2}A, P:{power:F2}W";
+                    await _hubContext.Clients.All.SendAsync("ReceiveData", rawLine, cancellationToken: token);
+
+                    // Enviar datos parseados
+                    await _hubContext.Clients.All.SendAsync("ReceiveTelemetry", new
+                    {
+                        voltage = Math.Round(voltage, 2),
+                        current = Math.Round(currentLoad, 2),
+                        power = Math.Round(power, 2)
+                    }, cancellationToken: token);
+
+                    await Task.Delay(250, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error en bucle de simulación: {ex.Message}");
+                    await Task.Delay(1000, token);
+                }
+            }
+        }
+
+        // Bucle de lectura físico en hilo secundario
+        private void ReadLoop()
+        {
+            while (_isRunning)
+            {
+                try
+                {
+                    if (_serialPort != null && _serialPort.IsOpen)
+                    {
+                        string line = _serialPort.ReadLine();
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            string trimmedLine = line.Trim();
+                            _logger.LogInformation($"Recibido del microcontrolador: \"{trimmedLine}\"");
+
+                            // Notificar log crudo
+                            _hubContext.Clients.All.SendAsync("ReceiveData", trimmedLine);
+
+                            // Parser de telemetría
+                            var (v, i, p) = ParseTelemetry(trimmedLine);
+                            if (v.HasValue || i.HasValue || p.HasValue)
+                            {
+                                _hubContext.Clients.All.SendAsync("ReceiveTelemetry", new
+                                {
+                                    voltage = v ?? 0.0,
+                                    current = i ?? 0.0,
+                                    power = p ?? 0.0
+                                });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Thread.Sleep(100);
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    // Timeout de lectura normal
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error en el bucle de lectura del puerto serie: {ex.Message}");
+                    lock (_lock)
+                    {
+                        if (_serialPort == null || !_serialPort.IsOpen)
+                        {
+                            HandleUnexpectedDisconnection();
+                            break;
+                        }
+                    }
+                    Thread.Sleep(500);
+                }
+            }
+        }
+
+        // Parser robusto para diferentes formatos de trama serie
+        private (double? V, double? I, double? P) ParseTelemetry(string line)
+        {
+            double? v = null, i = null, p = null;
+
+            // 1. Intentar parser JSON
+            try
+            {
+                if (line.Trim().StartsWith("{") && line.Trim().EndsWith("}"))
+                {
+                    var doc = JsonDocument.Parse(line);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("V", out var vProp) || root.TryGetProperty("voltage", out vProp))
+                        v = ConvertToDouble(vProp);
+                    if (root.TryGetProperty("I", out var iProp) || root.TryGetProperty("current", out iProp))
+                        i = ConvertToDouble(iProp);
+                    if (root.TryGetProperty("P", out var pProp) || root.TryGetProperty("power", out pProp))
+                        p = ConvertToDouble(pProp);
+
+                    return (v, i, p);
+                }
+            }
+            catch { }
+
+            // 2. Parser Key-Value usando expresiones regulares
+            // Busca voltajes: V:12.50V, V = 12.5, voltage:12
+            var matchV = Regex.Match(line, @"[Vv](?:olt(?:aje)?)?\s*[:=]\s*([0-9.]+)");
+            // Busca corrientes: I:1.25A, I = 1.25, corriente:1.2, C:1.2
+            var matchI = Regex.Match(line, @"(?:[Ii](?:nst(?:ante)?)?|[Cc](?:orr(?:iente)?)?)\s*[:=]\s*([0-9.]+)");
+            // Busca potencias: P:15.6W, P = 15.6, potencia:15
+            var matchP = Regex.Match(line, @"[Pp](?:ot(?:encia)?)?\s*[:=]\s*([0-9.]+)");
+
+            if (matchV.Success && double.TryParse(matchV.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double vVal))
+                v = vVal;
+            if (matchI.Success && double.TryParse(matchI.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double iVal))
+                i = iVal;
+            if (matchP.Success && double.TryParse(matchP.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double pVal))
+                p = pVal;
+
+            if (v.HasValue || i.HasValue || p.HasValue)
+            {
+                return (v, i, p);
+            }
+
+            // 3. Fallback: Separación por comas simple (V, I, P)
+            var parts = line.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3)
+            {
+                if (double.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out double val1) &&
+                    double.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out double val2) &&
+                    double.TryParse(parts[2], System.Globalization.CultureInfo.InvariantCulture, out double val3))
+                {
+                    return (val1, val2, val3); // Asume orden Voltaje, Corriente, Potencia
+                }
+            }
+
+            return (null, null, null);
+        }
+
+        private double? ConvertToDouble(JsonElement element)
+        {
+            if (element.ValueKind == JsonValueKind.Number)
+            {
+                return element.GetDouble();
+            }
+            if (element.ValueKind == JsonValueKind.String && double.TryParse(element.GetString(), System.Globalization.CultureInfo.InvariantCulture, out double val))
+            {
+                return val;
+            }
+            return null;
+        }
+
+        private void HandleUnexpectedDisconnection()
+        {
+            _logger.LogWarning("Desconexión inesperada de hardware detectada.");
+            Disconnect();
+            _hubContext.Clients.All.SendAsync("ReceiveTxLog", "[Sistema]⚠️ Advertencia: Conexión perdida con la tarjeta STM32 (Puerto COM cerrado inesperadamente).");
+        }
+
+        private void TryAutoConnect()
+        {
+            if (string.IsNullOrEmpty(_savedPort)) return;
+
+            string[] availablePorts = GetAvailablePorts();
+            bool isPortAvailable = Array.Exists(availablePorts, p => p.Equals(_savedPort, StringComparison.OrdinalIgnoreCase));
+
+            if (isPortAvailable)
+            {
+                _logger.LogInformation($"Restableciendo conexión guardada en puerto: {_savedPort}");
+                string error;
+                Connect(_savedPort, _savedBaudRate, out error);
+            }
+        }
+
+        private void LoadSettings()
+        {
+            try
+            {
+                if (File.Exists(_settingsPath))
+                {
+                    string json = File.ReadAllText(_settingsPath);
+                    var settings = JsonSerializer.Deserialize<SettingsData>(json);
+                    if (settings != null)
+                    {
+                        _savedPort = settings.SavedPort;
+                        _savedBaudRate = settings.SavedBaudRate;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"No se pudo cargar la configuración de puerto: {ex.Message}");
+            }
+        }
+
+        private void SaveSettings(string portName, int baudRate)
+        {
+            try
+            {
+                var settings = new SettingsData { SavedPort = portName, SavedBaudRate = baudRate };
+                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_settingsPath, json);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"No se pudo guardar la configuración de puerto: {ex.Message}");
+            }
+        }
+
+        private class SettingsData
+        {
+            public string? SavedPort { get; set; }
+            public int SavedBaudRate { get; set; }
+        }
+    }
+}

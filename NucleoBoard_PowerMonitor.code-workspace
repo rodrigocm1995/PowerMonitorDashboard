@@ -1,0 +1,20 @@
+{
+  "folders": [
+    {
+      "name": "CONFIGURACION GENERAL",
+      "path": "D:/VisualStudioProjects/NucleoBoard_TempAndCurrent_Dasboard",
+    },
+    {
+      "name": "SERVICIO BACKEND (C#)",
+      "path": "D:/VisualStudioProjects/NucleoBoard_TempAndCurrent_Dasboard/Service/PowerMonitorService",
+    },
+    {
+      "name": "VISTA FRONTEND (Angular)",
+      "path": "D:/VisualStudioProjects/NucleoBoard_TempAndCurrent_Dasboard/View/PowerMonitorView",
+    },
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+  },
+}
