@@ -695,3 +695,105 @@ body.light-mode .terminal {
 }
 body.light-mode .terminal::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.03); }
 body.light-mode .terminal::-webkit-scrollbar-thumb { background: rgba(13, 148, 136, 0.2); }
+
+/* ==========================================================================
+   Estilos de Calibración de Sensor (Campos e Inputs)
+   ========================================================================== */
+.sidebar-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.custom-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+.custom-input:focus:not(:disabled) {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.25);
+}
+
+.custom-input::placeholder {
+  color: var(--text-muted);
+}
+
+.input-with-select {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-with-select .custom-input {
+  flex: 1;
+}
+
+.custom-select-inline {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  padding: 0.65rem 0.5rem;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  width: 110px;
+  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+.custom-select-inline:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.25);
+}
+
+.input-hint {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  opacity: 0.85;
+  margin-top: 0.15rem;
+}
+
+.btn-config {
+  background: linear-gradient(135deg, var(--color-power) 0%, #d97706 100%);
+  color: #0b0f19;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
+}
+
+.btn-config:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+}
+
+/* Modo Claro Overrides */
+body.light-mode .custom-input,
+body.light-mode .custom-select-inline {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1f2937;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .custom-input::placeholder {
+  color: #9ca3af;
+}
+
+body.light-mode .input-hint {
+  color: #4b5563;
+}
+
+body.light-mode .btn-config {
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(234, 88, 12, 0.2);
+}
+
+body.light-mode .btn-config:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.35);
+}
+

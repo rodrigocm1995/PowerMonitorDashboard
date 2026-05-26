@@ -30,6 +30,11 @@ export class AppComponent implements OnInit, AfterViewInit {
   public readonly selectedBaudRate = signal<number>(115200);
   public readonly isDarkMode = signal<boolean>(true);
 
+  // Parámetros de calibración del sensor INA236
+  public readonly maxCurrentInput = signal<number>(2);
+  public readonly shuntResistorInput = signal<number>(10);
+  public readonly shuntUnitInput = signal<string>('mOhms');
+
   public readonly baudRates = [9600, 19200, 38400, 57600, 115200];
 
   // Instancias de Chart.js
@@ -125,6 +130,61 @@ export class AppComponent implements OnInit, AfterViewInit {
       error: (err) => {
         this.serialService.logToTerminal(
           `[Sistema] Error al desconectar: ${err.message}`,
+          'error'
+        );
+      }
+    });
+  }
+
+  // Aplica la calibración del sensor INA236
+  public onApplyConfig() {
+    if (!this.serialService.isConnected()) {
+      this.serialService.logToTerminal(
+        '[Sistema] Error: Debe estar conectado a un puerto para aplicar la calibración.',
+        'error'
+      );
+      return;
+    }
+
+    const maxI = this.maxCurrentInput();
+    const shuntRaw = this.shuntResistorInput();
+    const unit = this.shuntUnitInput();
+
+    // Validar Corriente Máxima: entero entre 1 y 100
+    if (!Number.isInteger(maxI) || maxI < 1 || maxI > 100) {
+      this.serialService.logToTerminal(
+        '[Sistema] Error: La corriente máxima debe ser un valor entero entre 1 y 100 A.',
+        'error'
+      );
+      return;
+    }
+
+    // Validar Shunt Resistor: positivo
+    if (isNaN(shuntRaw) || shuntRaw <= 0) {
+      this.serialService.logToTerminal(
+        '[Sistema] Error: El resistor Shunt debe ser un valor decimal mayor a 0.',
+        'error'
+      );
+      return;
+    }
+
+    // Calcular el valor en Ohms según la unidad
+    const shuntOhms = unit === 'mOhms' ? shuntRaw / 1000 : shuntRaw;
+
+    // Formatear el comando: SET:maxCurrent:shuntOhms
+    // Se usa toFixed(6) para evitar notación científica y proveer precisión de micro-Ohms
+    const command = `SET:${maxI}:${shuntOhms.toFixed(6)}\n`;
+
+    this.serialService.sendCommand(command).subscribe({
+      next: () => {
+        this.serialService.logToTerminal(
+          `[Sistema] Comando de calibración enviado: ${command.trim()}`,
+          'system'
+        );
+      },
+      error: (err) => {
+        this.serialService.logToTerminal(
+          `[Sistema] Error al enviar comando de calibración: ${err.message}`,
           'error'
         );
       }

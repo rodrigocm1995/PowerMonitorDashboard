@@ -53,107 +53,186 @@
   </header>
 
   <div class="dashboard-grid">
-    <!-- SECCIÓN 1: Tarjeta de Conexión del Puerto COM -->
-    <section id="card-connection" class="card" aria-labelledby="conn-heading">
-      <div class="card-header">
-        <div class="card-icon connection-icon"></div>
-        <h2 id="conn-heading">Conexión del puerto COM</h2>
-      </div>
-
-      <div class="card-body">
-        <!-- Visualizar en qué puerto está conectada la tarjeta de desarrollo -->
-        <div class="status-indicator-wrapper">
-          <span class="status-label">Estado de la Placa:</span>
-          <div
-            class="status-badge"
-            [class.connected]="serialService.isConnected()"
-            [class.disconnected]="!serialService.isConnected()"
-          >
-            <span class="status-dot"></span>
-            <span class="status-text">
-              {{
-                serialService.isConnected()
-                  ? "Conectado (" + serialService.activePort() + ")"
-                  : "Desconectado"
-              }}
-            </span>
-          </div>
+    <!-- Columna lateral izquierda (Conexión + Calibración) -->
+    <div class="sidebar-column">
+      
+      <!-- SECCIÓN 1: Tarjeta de Conexión del Puerto COM -->
+      <section id="card-connection" class="card" aria-labelledby="conn-heading">
+        <div class="card-header">
+          <div class="card-icon connection-icon"></div>
+          <h2 id="conn-heading">Conexión del puerto COM</h2>
         </div>
 
-        <!-- Drop-down para que el usuario pueda seleccionar los puertos COM existentes -->
-        <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label for="port-select">Seleccionar Puerto COM:</label>
-            <button
-              (click)="loadPorts()"
-              class="btn-clear"
-              style="padding: 0.15rem 0.5rem; font-size: 0.7rem; border-radius: 4px;"
+        <div class="card-body">
+          <!-- Visualizar en qué puerto está conectada la tarjeta de desarrollo -->
+          <div class="status-indicator-wrapper">
+            <span class="status-label">Estado de la Placa:</span>
+            <div
+              class="status-badge"
+              [class.connected]="serialService.isConnected()"
+              [class.disconnected]="!serialService.isConnected()"
+            >
+              <span class="status-dot"></span>
+              <span class="status-text">
+                {{
+                  serialService.isConnected()
+                    ? "Conectado (" + serialService.activePort() + ")"
+                    : "Desconectado"
+                }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Drop-down para que el usuario pueda seleccionar los puertos COM existentes -->
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label for="port-select">Seleccionar Puerto COM:</label>
+              <button
+                (click)="loadPorts()"
+                class="btn-clear"
+                style="padding: 0.15rem 0.5rem; font-size: 0.7rem; border-radius: 4px;"
+                [disabled]="serialService.isConnected()"
+              >
+                🔄 Refrescar
+              </button>
+            </div>
+            <select
+              id="port-select"
+              class="custom-select"
+              [ngModel]="selectedPort()"
+              (ngModelChange)="selectedPort.set($event)"
               [disabled]="serialService.isConnected()"
             >
-              🔄 Refrescar
+              @for (port of availablePorts(); track port) {
+                <option [value]="port">
+                  {{ port }} {{ port === 'SIMULATOR' ? "(Simulador de Carga)" : "" }}
+                </option>
+              } @empty {
+                <option value="">Ningún puerto detectado</option>
+              }
+            </select>
+          </div>
+
+          <!-- Drop-down para que el usuario pueda seleccionar la velocidad de baudios -->
+          <div class="form-group">
+            <label for="baudrate-select">Velocidad de Baudios:</label>
+            <select
+              id="baudrate-select"
+              class="custom-select"
+              [ngModel]="selectedBaudRate()"
+              (ngModelChange)="selectedBaudRate.set(+$event)"
+              [disabled]="serialService.isConnected()"
+            >
+              @for (baud of baudRates; track baud) {
+                <option [value]="baud">
+                  {{ baud }} bps {{ baud === 115200 ? "(Recomendado)" : "" }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <!-- Botón de Conectar / Desconectar -->
+          <div class="action-buttons">
+            @if (!serialService.isConnected()) {
+              <button
+                (click)="onConnect()"
+                class="btn btn-connect"
+                [disabled]="!selectedPort()"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
+                  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                  <line x1="12" y1="2" x2="12" y2="12"></line>
+                </svg>
+                <span class="btn-text">Conectar</span>
+              </button>
+            } @else {
+              <button (click)="onDisconnect()" class="btn btn-disconnect">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span class="btn-text">Desconectar</span>
+              </button>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- NUEVA SECCIÓN: Tarjeta de Configuración del Sensor -->
+      <section id="card-sensor-config" class="card" aria-labelledby="config-heading">
+        <div class="card-header">
+          <div class="card-icon config-icon" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23ff9f43\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\'/%3E%3Ccircle cx=\'12\' cy=\'12\' r=\'3\'/%3E%3C/svg%3E');"></div>
+          <h2 id="config-heading">Configuración del sensor INA236</h2>
+        </div>
+
+        <div class="card-body">
+          <!-- Campo para la Corriente Máxima -->
+          <div class="form-group">
+            <label for="max-current-input">Corriente Máxima (A):</label>
+            <input
+              id="max-current-input"
+              type="number"
+              class="custom-input"
+              min="1"
+              max="100"
+              step="1"
+              [ngModel]="maxCurrentInput()"
+              (ngModelChange)="maxCurrentInput.set(+$event)"
+              placeholder="Ej. 2"
+            />
+            <span class="input-hint">Valor entero de corriente máxima hasta 100 A.</span>
+          </div>
+
+          <!-- Campo para el valor del Resistor Shunt con Dropdown de unidades al lado -->
+          <div class="form-group">
+            <label for="shunt-resistor-input">Resistencia del Shunt:</label>
+            <div class="input-with-select">
+              <input
+                id="shunt-resistor-input"
+                type="number"
+                class="custom-input"
+                min="0.000001"
+                step="any"
+                [ngModel]="shuntResistorInput()"
+                (ngModelChange)="shuntResistorInput.set(+$event)"
+                placeholder="Ej. 10"
+              />
+              <select
+                id="shunt-unit-select"
+                class="custom-select-inline"
+                [ngModel]="shuntUnitInput()"
+                (ngModelChange)="shuntUnitInput.set($event)"
+              >
+                <option value="Ohms">Ohms (Ω)</option>
+                <option value="mOhms">mOhms (mΩ)</option>
+              </select>
+            </div>
+            <span class="input-hint">
+              @if (shuntUnitInput() === 'mOhms') {
+                Valor calculado: {{ (shuntResistorInput() / 1000) }} Ω
+              } @else {
+                Valor calculado: {{ shuntResistorInput() }} Ω
+              }
+            </span>
+          </div>
+
+          <!-- Botón de Aplicar Calibración -->
+          <div class="action-buttons">
+            <button
+              (click)="onApplyConfig()"
+              class="btn btn-config"
+              [disabled]="!serialService.isConnected()"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg" style="margin-right: 4px;">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+              </svg>
+              <span class="btn-text">Aplicar Calibración</span>
             </button>
           </div>
-          <select
-            id="port-select"
-            class="custom-select"
-            [ngModel]="selectedPort()"
-            (ngModelChange)="selectedPort.set($event)"
-            [disabled]="serialService.isConnected()"
-          >
-            @for (port of availablePorts(); track port) {
-              <option [value]="port">
-                {{ port }} {{ port === 'SIMULATOR' ? "(Simulador de Carga)" : "" }}
-              </option>
-            } @empty {
-              <option value="">Ningún puerto detectado</option>
-            }
-          </select>
         </div>
+      </section>
 
-        <!-- Drop-down para que el usuario pueda seleccionar la velocidad de baudios -->
-        <div class="form-group">
-          <label for="baudrate-select">Velocidad de Baudios:</label>
-          <select
-            id="baudrate-select"
-            class="custom-select"
-            [ngModel]="selectedBaudRate()"
-            (ngModelChange)="selectedBaudRate.set(+$event)"
-            [disabled]="serialService.isConnected()"
-          >
-            @for (baud of baudRates; track baud) {
-              <option [value]="baud">
-                {{ baud }} bps {{ baud === 115200 ? "(Recomendado)" : "" }}
-              </option>
-            }
-          </select>
-        </div>
-
-        <!-- Botón de Conectar / Desconectar -->
-        <div class="action-buttons">
-          @if (!serialService.isConnected()) {
-            <button
-              (click)="onConnect()"
-              class="btn btn-connect"
-              [disabled]="!selectedPort()"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
-                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                <line x1="12" y1="2" x2="12" y2="12"></line>
-              </svg>
-              <span class="btn-text">Conectar</span>
-            </button>
-          } @else {
-            <button (click)="onDisconnect()" class="btn btn-disconnect">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-              <span class="btn-text">Desconectar</span>
-            </button>
-          }
-        </div>
-      </div>
-    </section>
+    </div>
 
     <!-- SECCIÓN 2: Tarjeta de Monitoreo de la Carga (Métricas y Gráficas) -->
     <section id="card-monitor" class="card" aria-labelledby="monitor-heading">
