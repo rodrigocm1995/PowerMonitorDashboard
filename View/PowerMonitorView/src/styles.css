@@ -13,12 +13,14 @@
 
   --accent-cyan: #00f2fe;
   --accent-blue: #0072ff;
-  
+
   /* Colores para variables eléctricas */
-  --color-current: #00ff88;  /* Verde neón para Corriente */
-  --color-voltage: #00f2fe;  /* Cyan eléctrico para Voltaje */
-  --color-power: #ff9f43;    /* Naranja vibrante para Potencia */
-  
+  --color-current: #00ff88; /* Verde neón para Corriente */
+  --color-voltage: #00f2fe; /* Cyan eléctrico para Voltaje */
+  --color-power: #ff9f43; /* Naranja vibrante para Potencia */
+  --color-shunt-voltage: #e84393; /* Rosado vibrante para Voltaje de Shunt */
+  --color-load-resistance: #a29bfe; /* Lavanda para Resistencia de Carga */
+
   --accent-red: #ef4444;
   --accent-warning: #f59e0b;
 
@@ -26,8 +28,8 @@
   --terminal-border: rgba(0, 242, 254, 0.15);
 
   /* Tipografías */
-  --font-sans: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
   /* Layout */
   --border-radius: 16px;
@@ -164,7 +166,7 @@ body {
   .dashboard-grid {
     grid-template-columns: 320px 1fr;
   }
-  
+
   .terminal-card {
     grid-column: span 2;
   }
@@ -181,7 +183,10 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .card:hover {
@@ -309,7 +314,9 @@ body {
   font-size: 0.9rem;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .custom-select:focus:not(:disabled) {
@@ -443,7 +450,7 @@ body {
 }
 
 .metric-card::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
@@ -451,18 +458,42 @@ body {
   height: 100%;
 }
 
-.metric-card.current::before { background-color: var(--color-current); }
-.metric-card.voltage::before { background-color: var(--color-voltage); }
-.metric-card.power::before { background-color: var(--color-power); }
+.metric-card.current::before {
+  background-color: var(--color-current);
+}
+.metric-card.voltage::before {
+  background-color: var(--color-voltage);
+}
+.metric-card.power::before {
+  background-color: var(--color-power);
+}
+.metric-card.shunt-voltage::before {
+  background-color: var(--color-shunt-voltage);
+}
+.metric-card.load-resistance::before {
+  background-color: var(--color-load-resistance);
+}
 
 .metric-card:hover {
   background: rgba(255, 255, 255, 0.04);
   transform: translateY(-2px);
 }
 
-.metric-card.current:hover { box-shadow: 0 4px 20px rgba(0, 255, 136, 0.1); }
-.metric-card.voltage:hover { box-shadow: 0 4px 20px rgba(0, 242, 254, 0.1); }
-.metric-card.power:hover { box-shadow: 0 4px 20px rgba(255, 159, 67, 0.1); }
+.metric-card.current:hover {
+  box-shadow: 0 4px 20px rgba(0, 255, 136, 0.1);
+}
+.metric-card.voltage:hover {
+  box-shadow: 0 4px 20px rgba(0, 242, 254, 0.1);
+}
+.metric-card.power:hover {
+  box-shadow: 0 4px 20px rgba(255, 159, 67, 0.1);
+}
+.metric-card.shunt-voltage:hover {
+  box-shadow: 0 4px 20px rgba(232, 67, 147, 0.15);
+}
+.metric-card.load-resistance:hover {
+  box-shadow: 0 4px 20px rgba(162, 155, 254, 0.15);
+}
 
 .metric-label {
   font-size: 0.85rem;
@@ -479,9 +510,26 @@ body {
   letter-spacing: -0.5px;
 }
 
-.metric-card.current .metric-value { color: var(--color-current); text-shadow: 0 0 15px rgba(0, 255, 136, 0.2); }
-.metric-card.voltage .metric-value { color: var(--color-voltage); text-shadow: 0 0 15px rgba(0, 242, 254, 0.2); }
-.metric-card.power .metric-value { color: var(--color-power); text-shadow: 0 0 15px rgba(255, 159, 67, 0.2); }
+.metric-card.current .metric-value {
+  color: var(--color-current);
+  text-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+}
+.metric-card.voltage .metric-value {
+  color: var(--color-voltage);
+  text-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+}
+.metric-card.power .metric-value {
+  color: var(--color-power);
+  text-shadow: 0 0 15px rgba(255, 159, 67, 0.2);
+}
+.metric-card.shunt-voltage .metric-value {
+  color: var(--color-shunt-voltage);
+  text-shadow: 0 0 15px rgba(232, 67, 147, 0.2);
+}
+.metric-card.load-resistance .metric-value {
+  color: var(--color-load-resistance);
+  text-shadow: 0 0 15px rgba(162, 155, 254, 0.2);
+}
 
 /* Gráficas */
 .charts-grid {
@@ -490,9 +538,24 @@ body {
   gap: 1.5rem;
 }
 
+.chart-group-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 @media (min-width: 1100px) {
   .charts-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .chart-wrapper.current,
+  .chart-wrapper.voltage,
+  .chart-wrapper.power {
+    grid-column: span 2;
+  }
+  .chart-group-container.shunt-voltage,
+  .chart-group-container.load-resistance {
+    grid-column: span 3;
   }
 }
 
@@ -521,9 +584,26 @@ body {
   border-radius: 50%;
 }
 
-.chart-wrapper.current .chart-dot { background-color: var(--color-current); box-shadow: 0 0 8px var(--color-current); }
-.chart-wrapper.voltage .chart-dot { background-color: var(--color-voltage); box-shadow: 0 0 8px var(--color-voltage); }
-.chart-wrapper.power .chart-dot { background-color: var(--color-power); box-shadow: 0 0 8px var(--color-power); }
+.chart-wrapper.current .chart-dot {
+  background-color: var(--color-current);
+  box-shadow: 0 0 8px var(--color-current);
+}
+.chart-wrapper.voltage .chart-dot {
+  background-color: var(--color-voltage);
+  box-shadow: 0 0 8px var(--color-voltage);
+}
+.chart-wrapper.power .chart-dot {
+  background-color: var(--color-power);
+  box-shadow: 0 0 8px var(--color-power);
+}
+.chart-wrapper.shunt-voltage .chart-dot {
+  background-color: #e84393;
+  box-shadow: 0 0 8px #e84393;
+}
+.chart-wrapper.load-resistance .chart-dot {
+  background-color: #a29bfe;
+  box-shadow: 0 0 8px #a29bfe;
+}
 
 .chart-container {
   position: relative;
@@ -557,33 +637,75 @@ body {
   line-height: 1.4;
 }
 
-.system-msg { color: #60a5fa; }
-.tx-msg { color: var(--accent-cyan); }
-.rx-msg { color: var(--color-current); }
-.error-msg { color: var(--accent-red); }
+.system-msg {
+  color: #60a5fa;
+}
+.tx-msg {
+  color: var(--accent-cyan);
+}
+.rx-msg {
+  color: var(--color-current);
+}
+.error-msg {
+  color: var(--accent-red);
+}
 
 /* Scrollbars */
-.terminal::-webkit-scrollbar { width: 8px; }
-.terminal::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
-.terminal::-webkit-scrollbar-thumb { background: rgba(0, 242, 254, 0.25); border-radius: 4px; }
-.terminal::-webkit-scrollbar-thumb:hover { background: rgba(0, 242, 254, 0.5); }
+.terminal::-webkit-scrollbar {
+  width: 8px;
+}
+.terminal::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+.terminal::-webkit-scrollbar-thumb {
+  background: rgba(0, 242, 254, 0.25);
+  border-radius: 4px;
+}
+.terminal::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 242, 254, 0.5);
+}
 
 /* Animaciones */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulseRed {
-  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 @keyframes pulseGreen {
-  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
 /* ==========================================================================
@@ -601,11 +723,13 @@ body.light-mode {
 
   --accent-cyan: #0d9488;
   --accent-blue: #2563eb;
-  
-  --color-current: #059669;   /* Verde legible en fondo claro */
-  --color-voltage: #0891b2;   /* Cyan legible */
-  --color-power: #ea580c;     /* Naranja legible */
-  
+
+  --color-current: #059669; /* Verde legible en fondo claro */
+  --color-voltage: #0891b2; /* Cyan legible */
+  --color-power: #ea580c; /* Naranja legible */
+  --color-shunt-voltage: #d81b60; /* Rosa oscuro legible */
+  --color-load-resistance: #5f27cd; /* Morado oscuro legible */
+
   --accent-red: #dc2626;
   --accent-warning: #d97706;
 
@@ -637,9 +761,21 @@ body.light-mode .metric-card:hover {
   background: rgba(255, 255, 255, 0.9);
 }
 
-body.light-mode .metric-card.current .metric-value { text-shadow: 0 0 10px rgba(16, 185, 129, 0.15); }
-body.light-mode .metric-card.voltage .metric-value { text-shadow: 0 0 10px rgba(8, 145, 178, 0.15); }
-body.light-mode .metric-card.power .metric-value { text-shadow: 0 0 10px rgba(234, 88, 12, 0.15); }
+body.light-mode .metric-card.current .metric-value {
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+}
+body.light-mode .metric-card.voltage .metric-value {
+  text-shadow: 0 0 10px rgba(8, 145, 178, 0.15);
+}
+body.light-mode .metric-card.power .metric-value {
+  text-shadow: 0 0 10px rgba(234, 88, 12, 0.15);
+}
+body.light-mode .metric-card.shunt-voltage .metric-value {
+  text-shadow: 0 0 10px rgba(216, 27, 96, 0.15);
+}
+body.light-mode .metric-card.load-resistance .metric-value {
+  text-shadow: 0 0 10px rgba(95, 39, 205, 0.15);
+}
 
 body.light-mode .chart-wrapper {
   background: rgba(255, 255, 255, 0.5);
@@ -684,17 +820,29 @@ body.light-mode .warning-text {
   color: #991b1b;
 }
 
-body.light-mode .system-msg { color: #4b5563; }
-body.light-mode .tx-msg { color: #2563eb; }
-body.light-mode .rx-msg { color: #16a34a; }
-body.light-mode .error-msg { color: #dc2626; }
+body.light-mode .system-msg {
+  color: #4b5563;
+}
+body.light-mode .tx-msg {
+  color: #2563eb;
+}
+body.light-mode .rx-msg {
+  color: #16a34a;
+}
+body.light-mode .error-msg {
+  color: #dc2626;
+}
 
 body.light-mode .terminal {
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.03);
   scrollbar-color: rgba(13, 148, 136, 0.2) rgba(0, 0, 0, 0.03);
 }
-body.light-mode .terminal::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.03); }
-body.light-mode .terminal::-webkit-scrollbar-thumb { background: rgba(13, 148, 136, 0.2); }
+body.light-mode .terminal::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+body.light-mode .terminal::-webkit-scrollbar-thumb {
+  background: rgba(13, 148, 136, 0.2);
+}
 
 /* ==========================================================================
    Estilos de Calibración de Sensor (Campos e Inputs)
@@ -714,7 +862,9 @@ body.light-mode .terminal::-webkit-scrollbar-thumb { background: rgba(13, 148, 1
   font-family: var(--font-sans);
   font-size: 0.9rem;
   outline: none;
-  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+  transition:
+    border-color var(--transition-speed),
+    box-shadow var(--transition-speed);
 }
 
 .custom-input:focus:not(:disabled) {
@@ -752,7 +902,9 @@ body.light-mode .terminal::-webkit-scrollbar-thumb { background: rgba(13, 148, 1
   cursor: pointer;
   width: 125px;
   flex-shrink: 0;
-  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+  transition:
+    border-color var(--transition-speed),
+    box-shadow var(--transition-speed);
 }
 
 .custom-select-inline:focus {
@@ -802,4 +954,3 @@ body.light-mode .btn-config {
 body.light-mode .btn-config:hover:not(:disabled) {
   box-shadow: 0 6px 20px rgba(234, 88, 12, 0.35);
 }
-

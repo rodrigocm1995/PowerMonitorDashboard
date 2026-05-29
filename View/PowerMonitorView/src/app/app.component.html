@@ -4,16 +4,32 @@
   <div class="glass-bg-decor decor-2"></div>
 
   <!-- Botón de alternancia de Tema Claro/Oscuro -->
-  <div class="theme-toggle" style="position: absolute; top: 1.5rem; right: 1.5rem; z-index: 10;">
+  <div class="theme-toggle" style="position: absolute; top: 1.5rem; right: 1.5rem; z-index: 10">
     <button
       (click)="onToggleTheme()"
       class="btn-clear"
-      style="padding: 0.5rem; border-radius: 50%; width: 40px; height: 40px; justify-content: center;"
+      style="
+        padding: 0.5rem;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        justify-content: center;
+      "
       [title]="isDarkMode() ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
     >
       @if (isDarkMode()) {
         <!-- Icono de Sol -->
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <circle cx="12" cy="12" r="5"></circle>
           <line x1="12" y1="1" x2="12" y2="3"></line>
           <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -26,7 +42,17 @@
         </svg>
       } @else {
         <!-- Icono de Luna -->
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
         </svg>
       }
@@ -38,7 +64,10 @@
     <div class="warning-banner">
       <div class="warning-icon">⚠️</div>
       <div class="warning-text">
-        <strong>Servidor offline o sin dispositivos:</strong> No se han detectado puertos COM disponibles en el sistema o el servidor backend local de C# no está accesible en <em>http://localhost:5200</em>. Asegúrate de ejecutar el servidor backend ejecutando el comando <code>dotnet run</code> en la carpeta de <em>PowerMonitorService</em>.
+        <strong>Servidor offline o sin dispositivos:</strong> No se han detectado puertos COM
+        disponibles en el sistema o el servidor backend local de C# no está accesible en
+        <em>http://localhost:5200</em>. Asegúrate de ejecutar el servidor backend ejecutando el
+        comando <code>dotnet run</code> en la carpeta de <em>PowerMonitorService</em>.
       </div>
     </div>
   }
@@ -48,14 +77,14 @@
     <div class="badge">Monitoreo de Potencia STM32 + INA236</div>
     <h1 id="main-title">Power Monitor Dashboard</h1>
     <p class="subtitle">
-      Lectura y graficación en tiempo real de corriente, voltaje y potencia de una carga usando el sensor INA236 y comunicación serie.
+      Lectura y graficación en tiempo real de corriente, voltaje y potencia de una carga usando el
+      sensor INA236 y comunicación serie.
     </p>
   </header>
 
   <div class="dashboard-grid">
     <!-- Columna lateral izquierda (Conexión + Calibración) -->
     <div class="sidebar-column">
-      
       <!-- SECCIÓN 1: Tarjeta de Conexión del Puerto COM -->
       <section id="card-connection" class="card" aria-labelledby="conn-heading">
         <div class="card-header">
@@ -76,8 +105,8 @@
               <span class="status-text">
                 {{
                   serialService.isConnected()
-                    ? "Conectado (" + serialService.activePort() + ")"
-                    : "Desconectado"
+                    ? 'Conectado (' + serialService.activePort() + ')'
+                    : 'Desconectado'
                 }}
               </span>
             </div>
@@ -85,12 +114,12 @@
 
           <!-- Drop-down para que el usuario pueda seleccionar los puertos COM existentes -->
           <div class="form-group">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center">
               <label for="port-select">Seleccionar Puerto COM:</label>
               <button
                 (click)="loadPorts()"
                 class="btn-clear"
-                style="padding: 0.15rem 0.5rem; font-size: 0.7rem; border-radius: 4px;"
+                style="padding: 0.15rem 0.5rem; font-size: 0.7rem; border-radius: 4px"
                 [disabled]="serialService.isConnected()"
               >
                 🔄 Refrescar
@@ -105,7 +134,7 @@
             >
               @for (port of availablePorts(); track port) {
                 <option [value]="port">
-                  {{ port }} {{ port === 'SIMULATOR' ? "(Simulador de Carga)" : "" }}
+                  {{ port }} {{ port === 'SIMULATOR' ? '(Simulador de Carga)' : '' }}
                 </option>
               } @empty {
                 <option value="">Ningún puerto detectado</option>
@@ -125,7 +154,7 @@
             >
               @for (baud of baudRates; track baud) {
                 <option [value]="baud">
-                  {{ baud }} bps {{ baud === 115200 ? "(Recomendado)" : "" }}
+                  {{ baud }} bps {{ baud === 115200 ? '(Recomendado)' : '' }}
                 </option>
               }
             </select>
@@ -134,12 +163,19 @@
           <!-- Botón de Conectar / Desconectar -->
           <div class="action-buttons">
             @if (!serialService.isConnected()) {
-              <button
-                (click)="onConnect()"
-                class="btn btn-connect"
-                [disabled]="!selectedPort()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
+              <button (click)="onConnect()" class="btn btn-connect" [disabled]="!selectedPort()">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="btn-icon-svg"
+                >
                   <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
                   <line x1="12" y1="2" x2="12" y2="12"></line>
                 </svg>
@@ -147,7 +183,18 @@
               </button>
             } @else {
               <button (click)="onDisconnect()" class="btn btn-disconnect">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="btn-icon-svg"
+                >
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
@@ -161,7 +208,12 @@
       <!-- NUEVA SECCIÓN: Tarjeta de Configuración del Sensor -->
       <section id="card-sensor-config" class="card" aria-labelledby="config-heading">
         <div class="card-header">
-          <div class="card-icon config-icon" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23ff9f43\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\'/%3E%3Ccircle cx=\'12\' cy=\'12\' r=\'3\'/%3E%3C/svg%3E');"></div>
+          <div
+            class="card-icon config-icon"
+            style="
+              background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff9f43' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E&quot;);
+            "
+          ></div>
           <h2 id="config-heading">Configuración del sensor INA236</h2>
         </div>
 
@@ -214,7 +266,7 @@
                 Simulación activa: resistor Shunt desactivado.
               } @else {
                 @if (shuntUnitInput() === 'mOhms') {
-                  Valor calculado: {{ (shuntResistorInput() / 1000) }} Ω
+                  Valor calculado: {{ shuntResistorInput() / 1000 }} Ω
                 } @else {
                   Valor calculado: {{ shuntResistorInput() }} Ω
                 }
@@ -229,15 +281,28 @@
               class="btn btn-config"
               [disabled]="!serialService.isConnected()"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg" style="margin-right: 4px;">
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="btn-icon-svg"
+                style="margin-right: 4px"
+              >
+                <path
+                  d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+                ></path>
               </svg>
               <span class="btn-text">Aplicar Calibración</span>
             </button>
           </div>
         </div>
       </section>
-
     </div>
 
     <!-- SECCIÓN 2: Tarjeta de Monitoreo de la Carga (Métricas y Gráficas) -->
@@ -253,26 +318,38 @@
           <div class="metric-card current">
             <span class="metric-label">Corriente Consumida</span>
             <span class="metric-value">
-              {{ serialService.isConnected() ? formatValue(serialService.telemetry().current, 'A') : '0.00 A' }}
+              {{
+                serialService.isConnected()
+                  ? formatValue(serialService.telemetry().current, 'A')
+                  : '0.00 A'
+              }}
             </span>
           </div>
 
           <div class="metric-card voltage">
-            <span class="metric-label">Voltaje en Carga</span>
+            <span class="metric-label">Voltaje de Bus</span>
             <span class="metric-value">
-              {{ serialService.isConnected() ? formatValue(serialService.telemetry().voltage, 'V') : '0.00 V' }}
+              {{
+                serialService.isConnected()
+                  ? formatValue(serialService.telemetry().voltage, 'V')
+                  : '0.00 V'
+              }}
             </span>
           </div>
 
           <div class="metric-card power">
             <span class="metric-label">Potencia Consumida</span>
             <span class="metric-value">
-              {{ serialService.isConnected() ? formatValue(serialService.telemetry().power, 'W') : '0.00 W' }}
+              {{
+                serialService.isConnected()
+                  ? formatValue(serialService.telemetry().power, 'W')
+                  : '0.00 W'
+              }}
             </span>
           </div>
         </div>
 
-        <!-- Lienzos de Canvas para las tres gráficas en tiempo real -->
+        <!-- Lienzos de Canvas para las gráficas en tiempo real -->
         <div class="charts-grid">
           <!-- Gráfica 1: Corriente -->
           <div class="chart-wrapper current">
@@ -285,7 +362,7 @@
             </div>
           </div>
 
-          <!-- Gráfica 3: Voltaje -->
+          <!-- Gráfica 2: Voltaje -->
           <div class="chart-wrapper voltage">
             <div class="chart-title">
               <span class="chart-dot"></span>
@@ -296,7 +373,7 @@
             </div>
           </div>
 
-          <!-- Gráfica 2: Potencia -->
+          <!-- Gráfica 3: Potencia -->
           <div class="chart-wrapper power">
             <div class="chart-title">
               <span class="chart-dot"></span>
@@ -304,6 +381,52 @@
             </div>
             <div class="chart-container">
               <canvas #powerChartCanvas></canvas>
+            </div>
+          </div>
+
+          <!-- Sección de Voltaje de Shunt (Tarjeta + Gráfica) -->
+          <div class="chart-group-container shunt-voltage">
+            <div class="metric-card shunt-voltage">
+              <span class="metric-label">Voltaje de Shunt</span>
+              <span class="metric-value">
+                {{
+                  serialService.isConnected()
+                    ? shuntVoltage().toFixed(4) + ' mV'
+                    : '0.0000 mV'
+                }}
+              </span>
+            </div>
+            <div class="chart-wrapper shunt-voltage">
+              <div class="chart-title">
+                <span class="chart-dot"></span>
+                Voltaje de Shunt vs Tiempo (mV)
+              </div>
+              <div class="chart-container">
+                <canvas #shuntVoltageChartCanvas></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sección de Resistencia de Carga (Tarjeta + Gráfica) -->
+          <div class="chart-group-container load-resistance">
+            <div class="metric-card load-resistance">
+              <span class="metric-label">Resistencia de Carga</span>
+              <span class="metric-value">
+                {{
+                  serialService.isConnected()
+                    ? loadResistance().toFixed(2) + ' Ω'
+                    : '0.00 Ω'
+                }}
+              </span>
+            </div>
+            <div class="chart-wrapper load-resistance">
+              <div class="chart-title">
+                <span class="chart-dot"></span>
+                Resistencia de Carga vs Tiempo (Ω)
+              </div>
+              <div class="chart-container">
+                <canvas #loadResistanceChartCanvas></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -316,15 +439,28 @@
         <div class="card-icon console-icon"></div>
         <h2 id="term-heading">Consola de logs</h2>
         <button (click)="onClearConsole()" class="btn-clear-console">
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="clear-icon">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="clear-icon"
+          >
             <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            ></path>
           </svg>
           Limpiar Consola
         </button>
       </div>
 
-      <div class="card-body" style="padding-top: 0.5rem;">
+      <div class="card-body" style="padding-top: 0.5rem">
         <div class="terminal" #serialTerminal>
           @for (line of serialService.terminalLines(); track line) {
             <div class="terminal-line {{ line.type }}-msg">
@@ -332,7 +468,8 @@
             </div>
           } @empty {
             <div class="terminal-line system-msg">
-              [Sistema] Consola de logs activa. Conecta el puerto COM para empezar a monitorear la trama de datos serie.
+              [Sistema] Consola de logs activa. Conecta el puerto COM para empezar a monitorear la
+              trama de datos serie.
             </div>
           }
         </div>
@@ -340,7 +477,11 @@
     </section>
   </div>
 
-  <footer class="app-footer" style="text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
-    STM32 Power Monitor Dashboard © 2026 | Arquitectura de alto rendimiento C# SignalR & Angular Standalone
+  <footer
+    class="app-footer"
+    style="text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted)"
+  >
+    STM32 Power Monitor Dashboard © 2026 | Arquitectura de alto rendimiento C# SignalR & Angular
+    Standalone
   </footer>
 </div>

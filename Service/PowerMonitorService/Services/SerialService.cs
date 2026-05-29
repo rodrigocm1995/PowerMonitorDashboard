@@ -34,9 +34,11 @@ namespace PowerMonitorService.Services
         private double _lastVoltage = 0.0;
         private double _lastCurrent = 0.0;
         private double _lastPower = 0.0;
+        private double _lastShuntVoltage = 0.0;
 
         // Parámetros de calibración en modo simulación
         private double _simMaxCurrent = 2.0;
+        private double _simShuntResistor = 0.01;
 
         public SerialService(IHubContext<SerialHub> hubContext, ILogger<SerialService> logger)
         {
@@ -104,6 +106,8 @@ namespace PowerMonitorService.Services
                         _savedPort = portName;
                         _savedBaudRate = baudRate;
                         _simMaxCurrent = 2.0; // Reset a default de simulación
+                        _simShuntResistor = 0.01; // Reset a default de simulación
+                        _lastShuntVoltage = 0.0;
                         SaveSettings(portName, baudRate);
 
                         _simCts = new CancellationTokenSource();
@@ -229,6 +233,7 @@ namespace PowerMonitorService.Services
                             double.TryParse(parts[2], System.Globalization.CultureInfo.InvariantCulture, out double shuntR))
                         {
                             _simMaxCurrent = maxI; // Actualizar límite de corriente del simulador
+                            _simShuntResistor = shuntR; // Actualizar resistencia Shunt del simulador
                             _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"[Simulador] Calibración INA236 Actualizada: Corriente Máx = {maxI} A, Shunt Resistor = {shuntR} Ohms.");
                         }
                     }
@@ -274,9 +279,11 @@ namespace PowerMonitorService.Services
                     // Genera una variación sinusoidal con periodos y ruido proporcionales
                     phase += 0.05;
                     double maxI;
+                    double shuntR;
                     lock (_lock)
                     {
                         maxI = _simMaxCurrent;
+                        shuntR = _simShuntResistor;
                     }
                     double currentLoad = (maxI * 0.4) + (maxI * 0.25) * Math.Sin(phase); // Oscila entre 15% y 65% de I_max
 
@@ -299,8 +306,11 @@ namespace PowerMonitorService.Services
                     // Potencia calculada
                     double power = voltage * currentLoad;
 
+                    // Calcular Voltaje de Shunt simulado (en mV): Vshunt = I * Rshunt * 1000
+                    double shuntVoltageVal = currentLoad * shuntR * 1000.0;
+
                     // Enviar log crudo simulated
-                    string rawLine = $"V:{voltage:F2}V, I:{currentLoad:F2}A, P:{power:F2}W";
+                    string rawLine = $"V:{voltage:F2}V, I:{currentLoad:F2}A, P:{power:F2}W, ShuntV:{shuntVoltageVal:F4}mV";
                     await _hubContext.Clients.All.SendAsync("ReceiveData", rawLine, cancellationToken: token);
 
                     // Enviar datos parseados
@@ -308,7 +318,8 @@ namespace PowerMonitorService.Services
                     {
                         voltage = Math.Round(voltage, 2),
                         current = Math.Round(currentLoad, 2),
-                        power = Math.Round(power, 2)
+                        power = Math.Round(power, 2),
+                        shuntVoltage = Math.Round(shuntVoltageVal, 4)
                     }, cancellationToken: token);
 
                     await Task.Delay(250, token);
@@ -344,21 +355,23 @@ namespace PowerMonitorService.Services
                             _hubContext.Clients.All.SendAsync("ReceiveData", trimmedLine);
 
                             // Parser de telemetría
-                            var (v, i, p) = ParseTelemetry(trimmedLine);
-                            if (v.HasValue || i.HasValue || p.HasValue)
+                            var (v, i, p, sv) = ParseTelemetry(trimmedLine);
+                            if (v.HasValue || i.HasValue || p.HasValue || sv.HasValue)
                             {
                                 lock (_lock)
                                 {
                                     if (v.HasValue) _lastVoltage = v.Value;
                                     if (i.HasValue) _lastCurrent = i.Value;
                                     if (p.HasValue) _lastPower = p.Value;
+                                    if (sv.HasValue) _lastShuntVoltage = sv.Value;
                                 }
 
                                 _hubContext.Clients.All.SendAsync("ReceiveTelemetry", new
                                 {
                                     voltage = _lastVoltage,
                                     current = _lastCurrent,
-                                    power = _lastPower
+                                    power = _lastPower,
+                                    shuntVoltage = _lastShuntVoltage
                                 });
                             }
                         }
@@ -389,9 +402,9 @@ namespace PowerMonitorService.Services
         }
 
         // Parser robusto para diferentes formatos de trama serie
-        private (double? V, double? I, double? P) ParseTelemetry(string line)
+        private (double? V, double? I, double? P, double? SV) ParseTelemetry(string line)
         {
-            double? v = null, i = null, p = null;
+            double? v = null, i = null, p = null, sv = null;
 
             // 1. Intentar parser JSON
             try
@@ -406,13 +419,28 @@ namespace PowerMonitorService.Services
                         i = ConvertToDouble(iProp);
                     if (root.TryGetProperty("P", out var pProp) || root.TryGetProperty("power", out pProp))
                         p = ConvertToDouble(pProp);
+                    if (root.TryGetProperty("SV", out var svProp) || root.TryGetProperty("shuntVoltage", out svProp))
+                        sv = ConvertToDouble(svProp);
 
-                    return (v, i, p);
+                    return (v, i, p, sv);
                 }
             }
             catch { }
 
-            // 2. Parser Key-Value usando expresiones regulares
+            // 2. Interceptar tramas de Voltaje Shunt específicas para evitar colisión con el voltaje del bus
+            if (line.Contains("Shunt Voltage", StringComparison.OrdinalIgnoreCase) || 
+                line.Contains("ShuntV", StringComparison.OrdinalIgnoreCase))
+            {
+                var matchSV = Regex.Match(line, @"(?:Shunt\s+Voltage|ShuntV)\s*[:=]\s*(-?[0-9.]+)");
+                if (matchSV.Success && double.TryParse(matchSV.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double svVal))
+                {
+                    sv = svVal;
+                    // Remover la parte de Shunt Voltage para evitar que el parser de Voltaje normal lo confunda
+                    line = line.Replace(matchSV.Value, "");
+                }
+            }
+
+            // 3. Parser Key-Value usando expresiones regulares
             // Busca voltajes: V:12.50V, V = 12.5, voltage:12, Load Voltage = 12
             var matchV = Regex.Match(line, @"[Vv](?:olt(?:age|aje)?)?\s*[:=]\s*([0-9.]+)");
             // Busca corrientes: I:1.25A, Current = 1.25, corriente:1.2, C:1.2
@@ -449,12 +477,12 @@ namespace PowerMonitorService.Services
                 }
             }
 
-            if (v.HasValue || i.HasValue || p.HasValue)
+            if (v.HasValue || i.HasValue || p.HasValue || sv.HasValue)
             {
-                return (v, i, p);
+                return (v, i, p, sv);
             }
 
-            // 3. Fallback: Separación por comas simple (V, I, P)
+            // 4. Fallback: Separación por comas simple (V, I, P, SV)
             var parts = line.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 3)
             {
@@ -462,11 +490,16 @@ namespace PowerMonitorService.Services
                     double.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out double val2) &&
                     double.TryParse(parts[2], System.Globalization.CultureInfo.InvariantCulture, out double val3))
                 {
-                    return (val1, val2, val3); // Asume orden Voltaje, Corriente, Potencia
+                    double? parsedSV = null;
+                    if (parts.Length >= 4 && double.TryParse(parts[3], System.Globalization.CultureInfo.InvariantCulture, out double val4))
+                    {
+                        parsedSV = val4;
+                    }
+                    return (val1, val2, val3, parsedSV); // Asume orden Voltaje, Corriente, Potencia, ShuntVoltage
                 }
             }
 
-            return (null, null, null);
+            return (null, null, null, null);
         }
 
         private double? ConvertToDouble(JsonElement element)

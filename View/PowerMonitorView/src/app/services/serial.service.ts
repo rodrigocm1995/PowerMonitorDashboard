@@ -13,6 +13,7 @@ export interface TelemetryData {
   current: number;
   voltage: number;
   power: number;
+  shuntVoltage?: number;
 }
 
 @Injectable({

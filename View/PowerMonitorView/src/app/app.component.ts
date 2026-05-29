@@ -7,6 +7,7 @@ import {
   signal,
   effect,
   inject,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -29,6 +30,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild('currentChartCanvas') currentChartCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('voltageChartCanvas') voltageChartCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('powerChartCanvas') powerChartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('shuntVoltageChartCanvas') shuntVoltageChartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('loadResistanceChartCanvas') loadResistanceChartCanvas!: ElementRef<HTMLCanvasElement>;
 
   // --- REFERENCIA DE LA TERMINAL ---
   @ViewChild('serialTerminal') serialTerminal!: ElementRef<HTMLDivElement>;
@@ -44,12 +47,25 @@ export class AppComponent implements OnInit, AfterViewInit {
   public readonly shuntResistorInput = signal<number>(10);
   public readonly shuntUnitInput = signal<string>('mOhms');
 
+  // --- VALORES REACTIVOS CALCULADOS ---
+  public readonly shuntVoltage = computed(() => {
+    const telemetry = this.serialService.telemetry();
+    return telemetry.shuntVoltage !== undefined ? telemetry.shuntVoltage : 0;
+  });
+
+  public readonly loadResistance = computed(() => {
+    const telemetry = this.serialService.telemetry();
+    return telemetry.current > 0.0001 ? (telemetry.voltage / telemetry.current) : 0;
+  });
+
   public readonly baudRates = [9600, 19200, 38400, 57600, 115200];
 
   // Instancias de Chart.js
   private currentChart!: Chart;
   private voltageChart!: Chart;
   private powerChart!: Chart;
+  private shuntVoltageChart!: Chart;
+  private loadResistanceChart!: Chart;
 
   constructor() {
     // Efecto reactivo para actualizar gráficas cuando cambia la telemetría
@@ -255,7 +271,8 @@ export class AppComponent implements OnInit, AfterViewInit {
       label: string,
       lineColor: string,
       fillColor: string,
-      yMaxInit: number,
+      yMin?: number,
+      yMax?: number,
     ) => {
       const ctx = canvas.getContext('2d');
       let gradient: CanvasGradient | undefined;
@@ -311,7 +328,8 @@ export class AppComponent implements OnInit, AfterViewInit {
               },
             },
             y: {
-              min: 0,
+              suggestedMin: yMin,
+              suggestedMax: yMax,
               grid: { color: 'rgba(255, 255, 255, 0.05)' },
               ticks: {
                 color: '#9ca3af',
@@ -323,13 +341,14 @@ export class AppComponent implements OnInit, AfterViewInit {
       });
     };
 
-    // Crear las 3 gráficas
+    // Crear las 5 gráficas (se inicializan con escala Y completamente flexible, gestionada dinámicamente)
     this.currentChart = chartConfig(
       this.currentChartCanvas.nativeElement,
       'Corriente (A)',
       '#00ff88',
       'rgba(0, 255, 136, 0.2)',
-      10,
+      undefined,
+      undefined,
     );
 
     this.voltageChart = chartConfig(
@@ -337,7 +356,8 @@ export class AppComponent implements OnInit, AfterViewInit {
       'Voltaje (V)',
       '#00f2fe',
       'rgba(0, 242, 254, 0.2)',
-      36,
+      undefined,
+      undefined,
     );
 
     this.powerChart = chartConfig(
@@ -345,13 +365,32 @@ export class AppComponent implements OnInit, AfterViewInit {
       'Potencia (W)',
       '#ff9f43',
       'rgba(255, 159, 67, 0.2)',
-      100,
+      undefined,
+      undefined,
+    );
+
+    this.shuntVoltageChart = chartConfig(
+      this.shuntVoltageChartCanvas.nativeElement,
+      'Voltaje de Shunt (mV)',
+      '#e84393',
+      'rgba(232, 67, 147, 0.2)',
+      undefined,
+      undefined,
+    );
+
+    this.loadResistanceChart = chartConfig(
+      this.loadResistanceChartCanvas.nativeElement,
+      'Resistencia de Carga (Ω)',
+      '#a29bfe',
+      'rgba(162, 155, 254, 0.2)',
+      undefined,
+      undefined,
     );
   }
 
-  // Agrega datos en tiempo real a las gráficas (mantiene los últimos 40 puntos)
+  // Agrega datos en tiempo real a las gráficas (mantiene los últimos 45 puntos)
   private updateCharts(data: TelemetryData) {
-    if (!this.currentChart || !this.voltageChart || !this.powerChart) return;
+    if (!this.currentChart || !this.voltageChart || !this.powerChart || !this.shuntVoltageChart || !this.loadResistanceChart) return;
     if (!this.serialService.isConnected()) return;
 
     const timeLabel = new Date().toLocaleTimeString([], {
@@ -360,7 +399,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       second: '2-digit',
     });
 
-    const pushData = (chart: Chart, value: number) => {
+    const pushData = (chart: Chart, value: number, minSpan: number, allowNegative: boolean = false) => {
       chart.data.labels?.push(timeLabel);
       chart.data.datasets[0].data.push(value);
 
@@ -368,12 +407,52 @@ export class AppComponent implements OnInit, AfterViewInit {
         chart.data.datasets[0].data.shift();
         chart.data.labels?.shift();
       }
-      chart.update('none'); // Actualiza de forma asíncrona y eficiente sin animar la transición
+
+      // Evitar que oscilaciones microscópicas de ruido electrónico deformen visualmente las gráficas
+      const dataPoints = chart.data.datasets[0].data as number[];
+      if (dataPoints.length > 0) {
+        let yMin = dataPoints[0];
+        let yMax = dataPoints[0];
+        for (let j = 1; j < dataPoints.length; j++) {
+          if (dataPoints[j] < yMin) yMin = dataPoints[j];
+          if (dataPoints[j] > yMax) yMax = dataPoints[j];
+        }
+
+        const diff = yMax - yMin;
+        if (diff < minSpan) {
+          // Centrar el span mínimo sugerido alrededor de la media
+          const mid = (yMax + yMin) / 2;
+          let calculatedMin = mid - minSpan / 2;
+          if (!allowNegative && calculatedMin < 0) {
+            calculatedMin = 0;
+          }
+          let calculatedMax = calculatedMin + minSpan;
+          
+          if (chart.options.scales?.['y']) {
+            chart.options.scales['y'].suggestedMin = calculatedMin;
+            chart.options.scales['y'].suggestedMax = calculatedMax;
+          }
+        } else {
+          // En variaciones mayores a minSpan, dejar que la escala se autoajuste de manera natural
+          if (chart.options.scales?.['y']) {
+            chart.options.scales['y'].suggestedMin = allowNegative ? undefined : 0;
+            chart.options.scales['y'].suggestedMax = undefined;
+          }
+        }
+      }
+
+      chart.update('none'); // Actualizar de forma asíncrona y eficiente sin animar la transición
     };
 
-    pushData(this.currentChart, data.current);
-    pushData(this.voltageChart, data.voltage);
-    pushData(this.powerChart, data.power);
+    // Calcular resistencia de carga: R = Vbus / I. Evitar división por cero
+    const loadResistanceVal = data.current > 0.0001 ? (data.voltage / data.current) : 0;
+    const shuntVoltageVal = data.shuntVoltage !== undefined ? data.shuntVoltage : 0;
+
+    pushData(this.currentChart, data.current, 0.5, false);
+    pushData(this.voltageChart, data.voltage, 2.0, false);
+    pushData(this.powerChart, data.power, 2.0, false);
+    pushData(this.shuntVoltageChart, shuntVoltageVal, 2.0, true);
+    pushData(this.loadResistanceChart, loadResistanceVal, 10.0, false);
   }
 
   // Limpia los datos de las gráficas
@@ -388,6 +467,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     resetChart(this.currentChart);
     resetChart(this.voltageChart);
     resetChart(this.powerChart);
+    resetChart(this.shuntVoltageChart);
+    resetChart(this.loadResistanceChart);
   }
 
   // Actualiza los colores de las cuadrículas de gráficas al cambiar el tema (Light/Dark)
@@ -418,6 +499,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     applyTheme(this.currentChart);
     applyTheme(this.voltageChart);
     applyTheme(this.powerChart);
+    applyTheme(this.shuntVoltageChart);
+    applyTheme(this.loadResistanceChart);
   }
 
   // Carga la última calibración guardada para el puerto seleccionado
