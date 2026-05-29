@@ -65,6 +65,15 @@ export class AppComponent implements OnInit, AfterViewInit {
         setTimeout(() => this.scrollToBottom(), 50);
       }
     });
+
+    // Efecto reactivo para cargar la calibración guardada al conectar a un puerto
+    effect(() => {
+      const isConnected = this.serialService.isConnected();
+      const activePort = this.serialService.activePort();
+      if (isConnected && activePort) {
+        this.loadSavedCalibration(activePort);
+      }
+    });
   }
 
   ngOnInit() {
@@ -182,6 +191,11 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     this.serialService.sendCommand(command).subscribe({
       next: () => {
+        // Guardar la calibración en localStorage para este puerto
+        const activePort = this.serialService.activePort();
+        if (activePort) {
+          this.saveCalibration(activePort);
+        }
         this.serialService.logToTerminal(
           `[Sistema] Comando de calibración enviado: ${command.trim()}`,
           'system',
@@ -404,5 +418,39 @@ export class AppComponent implements OnInit, AfterViewInit {
     applyTheme(this.currentChart);
     applyTheme(this.voltageChart);
     applyTheme(this.powerChart);
+  }
+
+  // Carga la última calibración guardada para el puerto seleccionado
+  private loadSavedCalibration(port: string) {
+    if (!port) return;
+    const savedMax = localStorage.getItem(`pm_max_i_${port}`);
+    const savedShunt = localStorage.getItem(`pm_shunt_r_${port}`);
+    const savedUnit = localStorage.getItem(`pm_shunt_u_${port}`);
+
+    if (savedMax !== null) {
+      this.maxCurrentInput.set(parseInt(savedMax, 10));
+    } else {
+      this.maxCurrentInput.set(2); // Valor por defecto
+    }
+
+    if (savedShunt !== null) {
+      this.shuntResistorInput.set(parseFloat(savedShunt));
+    } else {
+      this.shuntResistorInput.set(10); // Valor por defecto
+    }
+
+    if (savedUnit !== null) {
+      this.shuntUnitInput.set(savedUnit);
+    } else {
+      this.shuntUnitInput.set('mOhms'); // Valor por defecto
+    }
+  }
+
+  // Guarda la calibración actual para el puerto seleccionado
+  private saveCalibration(port: string) {
+    if (!port) return;
+    localStorage.setItem(`pm_max_i_${port}`, this.maxCurrentInput().toString());
+    localStorage.setItem(`pm_shunt_r_${port}`, this.shuntResistorInput().toString());
+    localStorage.setItem(`pm_shunt_u_${port}`, this.shuntUnitInput());
   }
 }
