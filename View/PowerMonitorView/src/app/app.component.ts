@@ -1,4 +1,13 @@
-import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, signal, effect, inject } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  AfterViewInit,
+  ViewChild,
+  ElementRef,
+  signal,
+  effect,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SerialService, TelemetryData } from './services/serial.service';
@@ -20,7 +29,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild('currentChartCanvas') currentChartCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('voltageChartCanvas') voltageChartCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('powerChartCanvas') powerChartCanvas!: ElementRef<HTMLCanvasElement>;
-  
+
   // --- REFERENCIA DE LA TERMINAL ---
   @ViewChild('serialTerminal') serialTerminal!: ElementRef<HTMLDivElement>;
 
@@ -60,7 +69,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   ngOnInit() {
     this.loadPorts();
-    
+
     // Si hay un puerto guardado del servidor backend, configurarlo
     effect(() => {
       const savedPort = this.serialService.savedPort();
@@ -83,7 +92,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.serialService.getAvailablePorts().subscribe({
       next: (ports) => {
         this.availablePorts.set(ports);
-        
+
         // Auto-seleccionar primer puerto disponible si no hay selección
         if (ports.length > 0 && !this.selectedPort()) {
           const defaultPort = ports.includes('SIMULATOR') ? 'SIMULATOR' : ports[0];
@@ -93,9 +102,9 @@ export class AppComponent implements OnInit, AfterViewInit {
       error: () => {
         this.serialService.logToTerminal(
           '[Sistema] No se pudieron cargar los puertos del backend.',
-          'error'
+          'error',
         );
-      }
+      },
     });
   }
 
@@ -113,11 +122,8 @@ export class AppComponent implements OnInit, AfterViewInit {
       },
       error: (err) => {
         const errorMsg = err.error?.message || err.message || 'Error desconocido';
-        this.serialService.logToTerminal(
-          `[Sistema] Error de conexión: ${errorMsg}`,
-          'error'
-        );
-      }
+        this.serialService.logToTerminal(`[Sistema] Error de conexión: ${errorMsg}`, 'error');
+      },
     });
   }
 
@@ -128,33 +134,31 @@ export class AppComponent implements OnInit, AfterViewInit {
         // La desconexión actualizará los estados vía SignalR automáticamente
       },
       error: (err) => {
-        this.serialService.logToTerminal(
-          `[Sistema] Error al desconectar: ${err.message}`,
-          'error'
-        );
-      }
+        this.serialService.logToTerminal(`[Sistema] Error al desconectar: ${err.message}`, 'error');
+      },
     });
   }
 
   // Aplica la calibración del sensor INA236
   public onApplyConfig() {
+    console.log('Botón presionado');
     if (!this.serialService.isConnected()) {
       this.serialService.logToTerminal(
         '[Sistema] Error: Debe estar conectado a un puerto para aplicar la calibración.',
-        'error'
+        'error',
       );
       return;
     }
 
-    const maxI = this.maxCurrentInput();
-    const shuntRaw = this.shuntResistorInput();
-    const unit = this.shuntUnitInput();
+    let maxI = this.maxCurrentInput();
+    let shuntRaw = this.shuntResistorInput();
+    let unit = this.shuntUnitInput();
 
     // Validar Corriente Máxima: entero entre 1 y 100
     if (!Number.isInteger(maxI) || maxI < 1 || maxI > 100) {
       this.serialService.logToTerminal(
         '[Sistema] Error: La corriente máxima debe ser un valor entero entre 1 y 100 A.',
-        'error'
+        'error',
       );
       return;
     }
@@ -163,31 +167,32 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (isNaN(shuntRaw) || shuntRaw <= 0) {
       this.serialService.logToTerminal(
         '[Sistema] Error: El resistor Shunt debe ser un valor decimal mayor a 0.',
-        'error'
+        'error',
       );
       return;
     }
 
     // Calcular el valor en Ohms según la unidad
     const shuntOhms = unit === 'mOhms' ? shuntRaw / 1000 : shuntRaw;
-
+    console.log(shuntOhms);
     // Formatear el comando: SET:maxCurrent:shuntOhms
     // Se usa toFixed(6) para evitar notación científica y proveer precisión de micro-Ohms
     const command = `SET:${maxI}:${shuntOhms.toFixed(6)}\n`;
+    console.log(command);
 
     this.serialService.sendCommand(command).subscribe({
       next: () => {
         this.serialService.logToTerminal(
           `[Sistema] Comando de calibración enviado: ${command.trim()}`,
-          'system'
+          'system',
         );
       },
       error: (err) => {
         this.serialService.logToTerminal(
           `[Sistema] Error al enviar comando de calibración: ${err.message}`,
-          'error'
+          'error',
         );
-      }
+      },
     });
   }
 
@@ -205,7 +210,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     } else {
       body.classList.add('light-mode');
     }
-    
+
     this.updateChartTheme();
   }
 
@@ -216,7 +221,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
     const absVal = Math.abs(val);
     if (absVal > 0 && absVal < 1) {
-      return `${(val * 1000).toFixed(2)} m${baseUnit}`;
+      return `${(val * 1000).toFixed(3)} m${baseUnit}`;
     }
     return `${val.toFixed(2)} ${baseUnit}`;
   }
@@ -236,11 +241,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       label: string,
       lineColor: string,
       fillColor: string,
-      yMaxInit: number
+      yMaxInit: number,
     ) => {
       const ctx = canvas.getContext('2d');
       let gradient: CanvasGradient | undefined;
-      
+
       if (ctx) {
         gradient = ctx.createLinearGradient(0, 0, 0, 200);
         gradient.addColorStop(0, fillColor);
@@ -261,9 +266,9 @@ export class AppComponent implements OnInit, AfterViewInit {
               borderWidth: 2,
               tension: 0.4, // Suaviza la curva
               pointRadius: 0, // Ocultar puntos para una línea fluida
-              pointHoverRadius: 5
-            }
-          ]
+              pointHoverRadius: 5,
+            },
+          ],
         },
         options: {
           responsive: true,
@@ -277,30 +282,30 @@ export class AppComponent implements OnInit, AfterViewInit {
               titleColor: '#fff',
               bodyColor: '#fff',
               borderColor: 'rgba(255,255,255,0.1)',
-              borderWidth: 1
-            }
+              borderWidth: 1,
+            },
           },
           scales: {
             x: {
               grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { 
+              ticks: {
                 color: '#9ca3af',
                 maxRotation: 0,
                 autoSkip: true,
                 maxTicksLimit: 5,
-                font: { family: 'Outfit', size: 10 } 
-              }
+                font: { family: 'Outfit', size: 10 },
+              },
             },
             y: {
               min: 0,
               grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { 
+              ticks: {
                 color: '#9ca3af',
-                font: { family: 'Outfit', size: 10 } 
-              }
-            }
-          }
-        }
+                font: { family: 'Outfit', size: 10 },
+              },
+            },
+          },
+        },
       });
     };
 
@@ -310,7 +315,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       'Corriente (A)',
       '#00ff88',
       'rgba(0, 255, 136, 0.2)',
-      10
+      10,
     );
 
     this.voltageChart = chartConfig(
@@ -318,7 +323,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       'Voltaje (V)',
       '#00f2fe',
       'rgba(0, 242, 254, 0.2)',
-      36
+      36,
     );
 
     this.powerChart = chartConfig(
@@ -326,7 +331,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       'Potencia (W)',
       '#ff9f43',
       'rgba(255, 159, 67, 0.2)',
-      100
+      100,
     );
   }
 
@@ -335,7 +340,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (!this.currentChart || !this.voltageChart || !this.powerChart) return;
     if (!this.serialService.isConnected()) return;
 
-    const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const timeLabel = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
 
     const pushData = (chart: Chart, value: number) => {
       chart.data.labels?.push(timeLabel);
@@ -375,7 +384,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     const applyTheme = (chart: Chart) => {
       if (!chart) return;
-      
+
       // Actualizar escalas x e y
       if (chart.options.scales?.['x']) {
         chart.options.scales['x'].grid = { color: gridColor };
