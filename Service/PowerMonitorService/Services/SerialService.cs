@@ -29,7 +29,6 @@ namespace PowerMonitorService.Services
         private bool _isRunning;
         private readonly object _lock = new();
         private readonly string _settingsPath;
-        private DateTime _lastDbSaveTime = DateTime.MinValue;
 
         // Propiedades para simulación
         private bool _isSimulating;
@@ -116,7 +115,6 @@ namespace PowerMonitorService.Services
                         _simMaxCurrent = 2.0; // Reset a default de simulación
                         _simShuntResistor = 0.01; // Reset a default de simulación
                         _lastShuntVoltage = 0.0;
-                        _lastDbSaveTime = DateTime.MinValue;
                         SaveSettings(portName, baudRate);
 
                         _simCts = new CancellationTokenSource();
@@ -153,7 +151,6 @@ namespace PowerMonitorService.Services
                     _currentBaudRate = baudRate;
                     _savedPort = portName;
                     _savedBaudRate = baudRate;
-                    _lastDbSaveTime = DateTime.MinValue;
                     SaveSettings(portName, baudRate);
 
                     _isRunning = true;
@@ -332,13 +329,9 @@ namespace PowerMonitorService.Services
                         shuntVoltage = Math.Round(shuntVoltageVal, 4)
                     }, cancellationToken: token);
 
-                    // Guardado periódico en la base de datos de SQL Server (Simulación)
-                    if (DateTime.UtcNow - _lastDbSaveTime >= TimeSpan.FromSeconds(5))
-                    {
-                        _lastDbSaveTime = DateTime.UtcNow;
-                        double calculatedLoad = currentLoad > 0 ? (voltage / currentLoad) : 0.0;
-                        SaveToDatabase(currentLoad, shuntVoltageVal, voltage, power, calculatedLoad);
-                    }
+                    // Guardar en la base de datos cada vez que se genera un nuevo valor de corriente (Simulación)
+                    double calculatedLoad = currentLoad > 0 ? (voltage / currentLoad) : 0.0;
+                    SaveToDatabase(currentLoad, shuntVoltageVal, voltage, power, calculatedLoad);
 
                     await Task.Delay(250, token);
                 }
@@ -392,10 +385,9 @@ namespace PowerMonitorService.Services
                                     shuntVoltage = _lastShuntVoltage
                                 });
 
-                                // Guardado periódico en la base de datos de SQL Server
-                                if (DateTime.UtcNow - _lastDbSaveTime >= TimeSpan.FromSeconds(5))
+                                // Guardar en la base de datos cada vez que se lea un nuevo valor de corriente
+                                if (i.HasValue)
                                 {
-                                    _lastDbSaveTime = DateTime.UtcNow;
                                     double calculatedLoad = _lastCurrent > 0 ? (_lastVoltage / _lastCurrent) : 0.0;
                                     SaveToDatabase(_lastCurrent, _lastShuntVoltage, _lastVoltage, _lastPower, calculatedLoad);
                                 }
