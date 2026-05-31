@@ -20,14 +20,14 @@ namespace PowerMonitorService.Data
             // Configurar tabla
             modelBuilder.Entity<CurrentMonitorRecord>(entity =>
             {
-                entity.ToTable("TelemetryRecords");
+                entity.ToTable("CurrentMonitorRecords");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Timestamp).IsRequired();
-                entity.Property(e => e.ElectricalCurrent).IsRequired(false);
-                entity.Property(e => e.ShuntVoltage).IsRequired(false);
-                entity.Property(e => e.BusVoltage).IsRequired(false);
-                entity.Property(e => e.ElectricalPower).IsRequired(false);
-                entity.Property(e => e.Load).IsRequired(false);
+                entity.Property(e => e.ElectricalCurrent).IsRequired();
+                entity.Property(e => e.ShuntVoltage).IsRequired();
+                entity.Property(e => e.BusVoltage).IsRequired();
+                entity.Property(e => e.ElectricalPower).IsRequired();
+                entity.Property(e => e.Load).IsRequired();
             });
         }
     }

@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SerialService, TelemetryData } from './services/serial.service';
+import { SerialService, TelemetryData, HistoryRecord } from './services/serial.service';
 import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
@@ -41,6 +41,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   public readonly selectedPort = signal<string>('');
   public readonly selectedBaudRate = signal<number>(115200);
   public readonly isDarkMode = signal<boolean>(true);
+  public readonly historyRecords = signal<HistoryRecord[]>([]);
 
   // Parámetros de calibración del sensor INA236
   public readonly maxCurrentInput = signal<number>(2);
@@ -104,6 +105,13 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.selectedBaudRate.set(savedBaud);
       }
     });
+
+    // Consultar periódicamente el historial de base de datos
+    setInterval(() => {
+      if (this.serialService.isConnected()) {
+        this.loadHistory();
+      }
+    }, 5000);
   }
 
   ngAfterViewInit() {
@@ -144,6 +152,8 @@ export class AppComponent implements OnInit, AfterViewInit {
       next: (res) => {
         // La conexión exitosa actualizará los estados vía SignalR automáticamente
         this.clearChartData();
+        // Esperar brevemente a que comience a llenarse la base de datos para cargar
+        setTimeout(() => this.loadHistory(), 1000);
       },
       error: (err) => {
         const errorMsg = err.error?.message || err.message || 'Error desconocido';
@@ -229,6 +239,18 @@ export class AppComponent implements OnInit, AfterViewInit {
   // Limpia los logs de consola
   public onClearConsole() {
     this.serialService.clearTerminal();
+  }
+
+  // Carga los registros del historial de la base de datos SQL Server
+  public loadHistory() {
+    this.serialService.getHistory().subscribe({
+      next: (records) => {
+        this.historyRecords.set(records);
+      },
+      error: (err) => {
+        console.error('Error al cargar historial desde la base de datos:', err);
+      }
+    });
   }
 
   // Alterna entre tema claro y oscuro

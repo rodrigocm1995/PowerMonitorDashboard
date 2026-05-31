@@ -477,6 +477,35 @@
     </section>
   </div>
 
+  <!-- Historial de base de datos SQL Server (Oculto de la pantalla por petición del usuario) -->
+  <div class="db-history-container" style="display: none;" aria-hidden="true">
+    <h3>Historial SQL Server (Oculto)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Corriente (A)</th>
+          <th>Voltaje Shunt (mV)</th>
+          <th>Voltaje Bus (V)</th>
+          <th>Potencia (W)</th>
+          <th>Carga (Ω)</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (record of historyRecords(); track record.id) {
+          <tr>
+            <td>{{ record.timestamp | date:'HH:mm:ss' }}</td>
+            <td>{{ record.electricalCurrent.toFixed(4) }} A</td>
+            <td>{{ record.shuntVoltage.toFixed(4) }} mV</td>
+            <td>{{ record.busVoltage.toFixed(2) }} V</td>
+            <td>{{ record.electricalPower.toFixed(2) }} W</td>
+            <td>{{ record.load.toFixed(2) }} Ω</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
   <footer
     class="app-footer"
     style="text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted)"

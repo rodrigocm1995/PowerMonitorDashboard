@@ -16,6 +16,16 @@ export interface TelemetryData {
   shuntVoltage?: number;
 }
 
+export interface HistoryRecord {
+  id: number;
+  timestamp: string;
+  electricalCurrent: number;
+  shuntVoltage: number;
+  busVoltage: number;
+  electricalPower: number;
+  load: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -59,6 +69,10 @@ export class SerialService {
 
   public sendCommand(command: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/send`, { command });
+  }
+
+  public getHistory(): Observable<HistoryRecord[]> {
+    return this.http.get<HistoryRecord[]>(`${this.baseUrl}/history`);
   }
 
   public clearTerminal() {

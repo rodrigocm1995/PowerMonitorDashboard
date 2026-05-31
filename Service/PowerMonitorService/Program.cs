@@ -1,5 +1,7 @@
 using PowerMonitorService.Hubs;
 using PowerMonitorService.Services;
+using Microsoft.EntityFrameworkCore;
+using PowerMonitorService.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,11 @@ builder.Services.AddCors(options =>
 
 // 2. Agregar soporte para controladores de API
 builder.Services.AddControllers();
+
+// Registrar DbContext de EF Core con SQL Server
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<CurrentMonitorDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
 // 3. Agregar SignalR para WebSockets en tiempo real
 builder.Services.AddSignalR();
