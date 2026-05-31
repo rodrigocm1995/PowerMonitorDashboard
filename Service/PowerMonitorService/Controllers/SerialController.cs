@@ -1,5 +1,6 @@
 using PowerMonitorService.Services;
 using Microsoft.AspNetCore.Mvc;
+using PowerMonitorService.Data;
 
 namespace PowerMonitorService.Controllers
 {
@@ -8,10 +9,12 @@ namespace PowerMonitorService.Controllers
     public class SerialController : ControllerBase
     {
         private readonly SerialService _serialService;
+        private readonly CurrentMonitorDbContext _dbContext;
 
-        public SerialController(SerialService serialService)
+        public SerialController(SerialService serialService, CurrentMonitorDbContext dbContext)
         {
             _serialService = serialService;
+            _dbContext = dbContext;
         }
 
         // GET: api/serial/ports
@@ -61,6 +64,23 @@ namespace PowerMonitorService.Controllers
         {
             _serialService.Disconnect();
             return Ok(new { Message = "Desconectado exitosamente.", Success = true });
+        }
+
+        [HttpGet("history")]
+        public IActionResult GetHistory()
+        {
+            try
+            {
+                var history = _dbContext.CurrentMonitorRecords
+                    .OrderByDescending(r => r.Timestamp)
+                    .Take(100)
+                    .ToList();
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message});
+            }
         }
 
         // POST: api/serial/send

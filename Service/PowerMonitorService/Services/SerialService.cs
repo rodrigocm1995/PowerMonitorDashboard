@@ -7,12 +7,16 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using PowerMonitorService.Data;
+using PowerMonitorService.Models;
+using System.Globalization;
 
 namespace PowerMonitorService.Services
 {
     public class SerialService
     {
         private readonly IHubContext<SerialHub> _hubContext;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<SerialService> _logger;
         private SerialPort? _serialPort;
         
@@ -40,9 +44,12 @@ namespace PowerMonitorService.Services
         private double _simMaxCurrent = 2.0;
         private double _simShuntResistor = 0.01;
 
-        public SerialService(IHubContext<SerialHub> hubContext, ILogger<SerialService> logger)
+        public SerialService(IHubContext<SerialHub> hubContext,
+            IServiceProvider serviceProvider,
+            ILogger<SerialService> logger)
         {
             _hubContext = hubContext;
+            _serviceProvider = serviceProvider;
             _logger = logger;
             _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "serial-settings.json");
             LoadSettings();
@@ -569,6 +576,35 @@ namespace PowerMonitorService.Services
             catch (Exception ex)
             {
                 _logger.LogError($"No se pudo guardar la configuración de puerto: {ex.Message}");
+            }
+        }
+
+        // Guardado periódico en la base de datos de SQL Server
+        private void SaveToDatabase(double electricalCurrent, double shuntVoltage, double busVoltage, double electricalPower, double load)
+        {
+            try
+            {
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<CurrentMonitorDbContext>();
+                    var record = new CurrentMonitorRecord
+                    {
+                        Timestamp = DateTime.Now,
+                        ElectricalCurrent = electricalCurrent,
+                        ShuntVoltage = shuntVoltage,
+                        BusVoltage = busVoltage,
+                        ElectricalPower = electricalPower,
+                        Load = load
+                    };
+
+                    context.CurrentMonitorRecords.Add(record);
+                    context.SaveChanges();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error al guardar los valores en SQL Server: {ex.Message}");
+                _hubContext.Clients.All.SendAsync("ReceiveTxLog", $"[Error] No se pudo guardar en la base de datos: {ex.Message}");
             }
         }
 
