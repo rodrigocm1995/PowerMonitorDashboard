@@ -313,74 +313,74 @@
       </div>
 
       <div class="card-body">
-        <!-- Indicadores de los valores actuales (Corriente, Voltaje, Potencia) -->
-        <div class="telemetry-metrics">
-          <div class="metric-card current">
-            <span class="metric-label">Corriente Consumida</span>
-            <span class="metric-value">
-              {{
-                serialService.isConnected()
-                  ? formatValue(serialService.telemetry().current, 'A')
-                  : '0.00 A'
-              }}
-            </span>
-          </div>
-
-          <div class="metric-card voltage">
-            <span class="metric-label">Voltaje de Bus</span>
-            <span class="metric-value">
-              {{
-                serialService.isConnected()
-                  ? formatValue(serialService.telemetry().voltage, 'V')
-                  : '0.00 V'
-              }}
-            </span>
-          </div>
-
-          <div class="metric-card power">
-            <span class="metric-label">Potencia Consumida</span>
-            <span class="metric-value">
-              {{
-                serialService.isConnected()
-                  ? formatValue(serialService.telemetry().power, 'W')
-                  : '0.00 W'
-              }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Lienzos de Canvas para las gráficas en tiempo real -->
+        <!-- Lienzos de Canvas y Métricas en tiempo real -->
         <div class="charts-grid">
-          <!-- Gráfica 1: Corriente -->
-          <div class="chart-wrapper current">
-            <div class="chart-title">
-              <span class="chart-dot"></span>
-              Corriente vs Tiempo (A)
+          <!-- Sección de Corriente (Tarjeta + Gráfica) -->
+          <div class="chart-group-container current">
+            <div class="metric-card current">
+              <span class="metric-label">Corriente Consumida</span>
+              <span class="metric-value">
+                {{
+                  serialService.isConnected()
+                    ? formatValue(serialService.telemetry().current, 'A')
+                    : '0.00 A'
+                }}
+              </span>
             </div>
-            <div class="chart-container">
-              <canvas #currentChartCanvas></canvas>
+            <div class="chart-wrapper current">
+              <div class="chart-title">
+                <span class="chart-dot"></span>
+                Corriente vs Tiempo (A)
+              </div>
+              <div class="chart-container">
+                <canvas #currentChartCanvas></canvas>
+              </div>
             </div>
           </div>
 
-          <!-- Gráfica 2: Voltaje -->
-          <div class="chart-wrapper voltage">
-            <div class="chart-title">
-              <span class="chart-dot"></span>
-              Voltaje vs Tiempo (V)
+          <!-- Sección de Voltaje (Tarjeta + Gráfica) -->
+          <div class="chart-group-container voltage">
+            <div class="metric-card voltage">
+              <span class="metric-label">Voltaje de Bus</span>
+              <span class="metric-value">
+                {{
+                  serialService.isConnected()
+                    ? formatValue(serialService.telemetry().voltage, 'V')
+                    : '0.00 V'
+                }}
+              </span>
             </div>
-            <div class="chart-container">
-              <canvas #voltageChartCanvas></canvas>
+            <div class="chart-wrapper voltage">
+              <div class="chart-title">
+                <span class="chart-dot"></span>
+                Voltaje vs Tiempo (V)
+              </div>
+              <div class="chart-container">
+                <canvas #voltageChartCanvas></canvas>
+              </div>
             </div>
           </div>
 
-          <!-- Gráfica 3: Potencia -->
-          <div class="chart-wrapper power">
-            <div class="chart-title">
-              <span class="chart-dot"></span>
-              Potencia vs Tiempo (W)
+          <!-- Sección de Potencia (Tarjeta + Gráfica) -->
+          <div class="chart-group-container power">
+            <div class="metric-card power">
+              <span class="metric-label">Potencia Consumida</span>
+              <span class="metric-value">
+                {{
+                  serialService.isConnected()
+                    ? formatValue(serialService.telemetry().power, 'W')
+                    : '0.00 W'
+                }}
+              </span>
             </div>
-            <div class="chart-container">
-              <canvas #powerChartCanvas></canvas>
+            <div class="chart-wrapper power">
+              <div class="chart-title">
+                <span class="chart-dot"></span>
+                Potencia vs Tiempo (W)
+              </div>
+              <div class="chart-container">
+                <canvas #powerChartCanvas></canvas>
+              </div>
             </div>
           </div>
 
