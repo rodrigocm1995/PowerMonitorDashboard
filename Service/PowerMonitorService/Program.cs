@@ -45,6 +45,24 @@ if (app.Environment.IsDevelopment())
 // Activar la política de CORS antes de controladores y hubs
 app.UseCors("CorsPolicy");
 
+// Servir la aplicación Angular desde el backend en el puerto 5200
+var angularPath = Path.Combine(app.Environment.ContentRootPath, "..", "..", "View", "PowerMonitorView", "dist", "PowerMonitorView", "browser");
+if (Directory.Exists(angularPath))
+{
+    app.UseDefaultFiles(new DefaultFilesOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(angularPath)
+    });
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(angularPath)
+    });
+    app.MapFallbackToFile("index.html", new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(angularPath)
+    });
+}
+
 app.UseAuthorization();
 
 // Mapear los controladores API REST
@@ -53,5 +71,5 @@ app.MapControllers();
 // Mapear el Hub de SignalR para el frontend
 app.MapHub<SerialHub>("/hubs/serial");
 
-// Forzar al backend a correr en http://localhost:5200
-app.Run("http://localhost:5200");
+// Forzar al backend a correr en http://0.0.0.0:5200
+app.Run("http://0.0.0.0:5200");

@@ -31,8 +31,18 @@ export interface HistoryRecord {
 })
 export class SerialService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:5200/api/serial';
   private hubConnection: signalR.HubConnection | null = null;
+
+  private getBackendHost(): string {
+    if (typeof window !== 'undefined' && window.location) {
+      return `http://${window.location.hostname}:5200`;
+    }
+    return 'http://localhost:5200';
+  }
+
+  private get baseUrl(): string {
+    return `${this.getBackendHost()}/api/serial`;
+  }
 
   // --- ANGULAR SIGNALS ---
   public readonly isConnected = signal<boolean>(false);
@@ -83,7 +93,7 @@ export class SerialService {
 
   private startSignalRConnection() {
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5200/hubs/serial')
+      .withUrl(`${this.getBackendHost()}/hubs/serial`)
       .withAutomaticReconnect()
       .build();
 
