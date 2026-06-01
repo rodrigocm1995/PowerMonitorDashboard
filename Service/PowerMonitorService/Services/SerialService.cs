@@ -29,6 +29,7 @@ namespace PowerMonitorService.Services
         private bool _isRunning;
         private readonly object _lock = new();
         private readonly string _settingsPath;
+        private double? _lastSavedCurrent = null;
 
         // Propiedades para simulación
         private bool _isSimulating;
@@ -115,6 +116,7 @@ namespace PowerMonitorService.Services
                         _simMaxCurrent = 2.0; // Reset a default de simulación
                         _simShuntResistor = 0.01; // Reset a default de simulación
                         _lastShuntVoltage = 0.0;
+                        _lastSavedCurrent = null;
                         SaveSettings(portName, baudRate);
 
                         _simCts = new CancellationTokenSource();
@@ -151,6 +153,7 @@ namespace PowerMonitorService.Services
                     _currentBaudRate = baudRate;
                     _savedPort = portName;
                     _savedBaudRate = baudRate;
+                    _lastSavedCurrent = null;
                     SaveSettings(portName, baudRate);
 
                     _isRunning = true;
@@ -329,9 +332,13 @@ namespace PowerMonitorService.Services
                         shuntVoltage = Math.Round(shuntVoltageVal, 4)
                     }, cancellationToken: token);
 
-                    // Guardar en la base de datos cada vez que se genera un nuevo valor de corriente (Simulación)
-                    double calculatedLoad = currentLoad > 0 ? (voltage / currentLoad) : 0.0;
-                    SaveToDatabase(currentLoad, shuntVoltageVal, voltage, power, calculatedLoad);
+                    // Guardar en la base de datos solo si el valor de la corriente cambia
+                    if (!_lastSavedCurrent.HasValue || currentLoad != _lastSavedCurrent.Value)
+                    {
+                        _lastSavedCurrent = currentLoad;
+                        double calculatedLoad = currentLoad > 0 ? (voltage / currentLoad) : 0.0;
+                        SaveToDatabase(currentLoad, shuntVoltageVal, voltage, power, calculatedLoad);
+                    }
 
                     await Task.Delay(250, token);
                 }
@@ -385,11 +392,16 @@ namespace PowerMonitorService.Services
                                     shuntVoltage = _lastShuntVoltage
                                 });
 
-                                // Guardar en la base de datos cada vez que se lea un nuevo valor de corriente
+                                // Guardar en la base de datos solo si el valor de la corriente cambia
                                 if (i.HasValue)
                                 {
-                                    double calculatedLoad = _lastCurrent > 0 ? (_lastVoltage / _lastCurrent) : 0.0;
-                                    SaveToDatabase(_lastCurrent, _lastShuntVoltage, _lastVoltage, _lastPower, calculatedLoad);
+                                    double currentVal = i.Value;
+                                    if (!_lastSavedCurrent.HasValue || currentVal != _lastSavedCurrent.Value)
+                                    {
+                                        _lastSavedCurrent = currentVal;
+                                        double calculatedLoad = currentVal > 0 ? (_lastVoltage / currentVal) : 0.0;
+                                        SaveToDatabase(currentVal, _lastShuntVoltage, _lastVoltage, _lastPower, calculatedLoad);
+                                    }
                                 }
                             }
                         }
